@@ -19,7 +19,19 @@ export interface UserProfile {
   createdAt: string;
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getGeminiClient = () => {
+  const apiKey =
+    import.meta.env.VITE_GEMINI_API_KEY ||
+    import.meta.env.VITE_GOOGLE_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      'Gemini API key is not configured. Add VITE_GEMINI_API_KEY to your .env file.'
+    );
+  }
+
+  return new GoogleGenAI({ apiKey });
+};
 
 const isConfigured = () => 
   supabaseUrl && 
@@ -151,6 +163,8 @@ export const db = {
    * Generates a structured learning path using Gemini API.
    */
   async generateLearningPath(source: string, audience: string) {
+    const ai = getGeminiClient();
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `You are an expert curriculum designer. Generate a structured learning path for the following topic: "${source}". 

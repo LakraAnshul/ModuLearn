@@ -187,7 +187,9 @@ const AppLayout: React.FC = () => {
                       loop
                     />
                   ) : (
-                    <img src={`https://i.pravatar.cc/150?u=${profile?.id}`} className="w-full h-full object-cover" />
+                    <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-bold text-sm uppercase">
+                      {profile?.fullName?.trim()?.[0] || 'U'}
+                    </div>
                   )}
                 </div>
               </div>

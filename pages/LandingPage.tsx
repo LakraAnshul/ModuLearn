@@ -63,7 +63,9 @@ const LandingPage: React.FC = () => {
             <div className="flex flex-col items-center md:items-start">
               <div className="flex -space-x-2 mb-3">
                 {[1,2,3,4].map(i => (
-                  <img key={i} src={`https://i.pravatar.cc/150?u=${i}`} className="w-8 h-8 rounded-full border-2 border-white dark:border-zinc-900" alt="Avatar" />
+                  <div key={i} className="w-8 h-8 rounded-full border-2 border-white dark:border-zinc-900 bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-[10px] font-bold flex items-center justify-center">
+                    {String.fromCharCode(64 + i)}
+                  </div>
                 ))}
                 <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-[10px] font-bold">+12k</div>
               </div>
