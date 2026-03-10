@@ -8,8 +8,10 @@ export interface CurriculumModule {
   id: string;
   title: string;
   description: string;
+  summary?: string;
   estimatedMinutes: number;
   subtopics: string[];
+  recommendedVideos?: string[];
 }
 
 export interface GeneratedCurriculum {
@@ -270,7 +272,16 @@ Education Level: ${educationLevel}
 
 ${levelGuidance[educationLevel] || levelGuidance['college']}
 
-Provide ONLY the explanation text, no JSON or markdown formatting. Make it comprehensive, clear, and engaging.`;
+    Return the explanation in readable structured markdown-style text using this format:
+    - Start with a heading line: "## ..."
+    - Include a short overview paragraph
+    - If a line introduces a list (example: "Key considerations include:" or "Follow these steps:"), write that intro as a normal paragraph line, not as a bullet or numbered item
+    - Add a section with bullet points using "- "
+    - Add a section with numbered steps using "1. ..."
+    - Include one callout line using "> " for a key tip
+    - Use **bold** for critical terms
+
+    Do not return JSON. Make it comprehensive, clear, and engaging.`;
 
       const response = await fetch(GROQ_API_URL, {
         method: 'POST',

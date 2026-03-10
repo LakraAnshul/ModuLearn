@@ -1,17 +1,24 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Type, Link as LinkIcon, Sparkles, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 import { db, UserProfile } from '../../lib/database.ts';
 import { groqService, GeneratedCurriculum } from '../../backend/groqService.ts';
+import { pdfLearningPipeline } from '../../backend/pdfLearningPipeline.ts';
+import { urlLearningPipeline } from '../../backend/urlLearningPipeline.ts';
 
 const CreatePath: React.FC = () => {
   const [method, setMethod] = useState<'upload' | 'text' | 'link'>('text');
   const [loading, setLoading] = useState(false);
   const [content, setContent] = useState('');
   const [error, setError] = useState('');
+  const [uploadStatus, setUploadStatus] = useState('');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkStatus, setLinkStatus] = useState('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
 
   // Load user profile on mount
@@ -44,12 +51,46 @@ const CreatePath: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    if (!content || content.trim().length < 5) {
-      setError('Please enter a topic with at least 5 characters.');
-      return;
+    if (method === 'text') {
+      if (!content || content.trim().length < 5) {
+        setError('Please enter a topic with at least 5 characters.');
+        return;
+      }
+    }
+
+    if (method === 'upload') {
+      if (!selectedPdf) {
+        setError('Please select a PDF file to upload.');
+        return;
+      }
+
+      if (selectedPdf.size > 25 * 1024 * 1024) {
+        setError('PDF file size must be 25MB or less.');
+        return;
+      }
+    }
+
+    if (method === 'link') {
+      if (!linkUrl.trim()) {
+        setError('Please enter a URL to continue.');
+        return;
+      }
+
+      try {
+        const normalized = /^https?:\/\//i.test(linkUrl.trim()) ? linkUrl.trim() : `https://${linkUrl.trim()}`;
+        const parsed = new URL(normalized);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          throw new Error('Invalid URL protocol');
+        }
+      } catch {
+        setError('Please enter a valid HTTP/HTTPS URL.');
+        return;
+      }
     }
 
     setError('');
+    setUploadStatus('');
+    setLinkStatus('');
     setLoading(true);
 
     try {
@@ -58,12 +99,56 @@ const CreatePath: React.FC = () => {
         return;
       }
 
-      // Generate curriculum using Groq API
       const educationLevel = getEducationLevelForGroq();
-      const curriculum: GeneratedCurriculum = await groqService.generateCurriculum(
-        content,
-        educationLevel
-      );
+      let curriculum: GeneratedCurriculum;
+      let topicForRoute = content;
+
+      if (method === 'upload') {
+        const file = selectedPdf as File;
+        const result = await pdfLearningPipeline.processPdf(file, {
+          educationLevel,
+          onProgress: (message) => setUploadStatus(message),
+        });
+
+        curriculum = result.curriculum;
+        topicForRoute = file.name.replace(/\.pdf$/i, '');
+
+        localStorage.setItem(
+          'modulearn:lastPdfPipeline',
+          JSON.stringify({
+            fileName: file.name,
+            processedAt: new Date().toISOString(),
+            totalPages: result.intermediate.totalPages,
+            totalChunks: result.intermediate.totalChunks,
+            chunks: result.intermediate.chunks,
+            sections: result.intermediate.sections,
+          })
+        );
+      } else if (method === 'link') {
+        const result = await urlLearningPipeline.processUrl(linkUrl, {
+          educationLevel,
+          onProgress: (message) => setLinkStatus(message),
+        });
+
+        curriculum = result.curriculum;
+        topicForRoute = result.intermediate.title || linkUrl;
+
+        localStorage.setItem(
+          'modulearn:lastUrlPipeline',
+          JSON.stringify({
+            inputUrl: linkUrl,
+            processedAt: new Date().toISOString(),
+            resolvedUrl: result.intermediate.resolvedUrl,
+            fetchStrategy: result.intermediate.fetchStrategy,
+            title: result.intermediate.title,
+            description: result.intermediate.description,
+            contentLength: result.intermediate.contentLength,
+            preview: result.intermediate.preview,
+          })
+        );
+      } else {
+        curriculum = await groqService.generateCurriculum(content, educationLevel);
+      }
 
       console.log('Generated curriculum:', curriculum);
 
@@ -71,7 +156,7 @@ const CreatePath: React.FC = () => {
       navigate('/app/structure', { 
         state: { 
           curriculum,
-          topic: content,
+          topic: topicForRoute,
           educationLevel: profile.educationLevel
         } 
       });
@@ -110,26 +195,24 @@ const CreatePath: React.FC = () => {
 
         <button 
           onClick={() => setMethod('upload')}
-          disabled={true}
-          className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-4 opacity-50 cursor-not-allowed ${method === 'upload' ? 'border-peach bg-peach/5 text-peach' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-400'}`}
+          className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-4 ${method === 'upload' ? 'border-peach bg-peach/5 text-peach' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-400 hover:border-zinc-200 dark:hover:border-zinc-700'}`}
         >
           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${method === 'upload' ? 'bg-peach text-white shadow-lg shadow-peach/20' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
             <Upload size={24} />
           </div>
           <span className="font-bold text-sm tracking-tight">Upload PDF</span>
-          <span className="text-[10px] font-semibold text-zinc-400">Coming Soon</span>
+          <span className="text-[10px] font-semibold text-zinc-400">Now Available</span>
         </button>
 
         <button 
           onClick={() => setMethod('link')}
-          disabled={true}
-          className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-4 opacity-50 cursor-not-allowed ${method === 'link' ? 'border-peach bg-peach/5 text-peach' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-400'}`}
+          className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-4 ${method === 'link' ? 'border-peach bg-peach/5 text-peach' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-400 hover:border-zinc-200 dark:hover:border-zinc-700'}`}
         >
           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${method === 'link' ? 'bg-peach text-white shadow-lg shadow-peach/20' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
             <LinkIcon size={24} />
           </div>
           <span className="font-bold text-sm tracking-tight">URL / Link</span>
-          <span className="text-[10px] font-semibold text-zinc-400">Coming Soon</span>
+          <span className="text-[10px] font-semibold text-zinc-400">Live</span>
         </button>
       </div>
 
@@ -186,17 +269,61 @@ const CreatePath: React.FC = () => {
         )}
 
         {method === 'upload' && (
-          <div className="h-64 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-[32px] flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-800 group hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer">
+          <div
+            className="h-64 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-[32px] flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-800 group hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0] || null;
+                setSelectedPdf(file);
+                setError('');
+                setUploadStatus('');
+              }}
+            />
             <Upload size={40} className="text-zinc-300 mb-4 group-hover:text-peach transition-colors" />
-            <p className="font-bold text-zinc-400">Drag & Drop your PDF here</p>
+            <p className="font-bold text-zinc-400">Select your PDF file</p>
             <p className="text-zinc-300 text-xs mt-1">Maximum file size 25MB</p>
+            {selectedPdf && (
+              <p className="mt-4 text-xs font-semibold text-peach px-4 text-center break-all">
+                Selected: {selectedPdf.name}
+              </p>
+            )}
+            {uploadStatus && (
+              <p className="mt-2 text-[11px] font-semibold text-zinc-500 dark:text-zinc-300 text-center px-6">
+                {uploadStatus}
+              </p>
+            )}
           </div>
         )}
 
         {method === 'link' && (
           <div className="space-y-6">
-             <label className="block text-xs font-bold uppercase tracking-widest text-zinc-400 mb-4">Documentation Link</label>
-             <input type="text" className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl p-6 outline-none dark:text-white" placeholder="https://react.dev/learn/performance..." />
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-zinc-400 mb-4">Documentation Link</label>
+              <input
+                type="url"
+                value={linkUrl}
+                onChange={(e) => {
+                  setLinkUrl(e.target.value);
+                  setError('');
+                }}
+                className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl p-6 outline-none focus:ring-2 focus:ring-peach/20 dark:text-white placeholder:text-zinc-400"
+                placeholder="https://react.dev/learn"
+              />
+              <p className="mt-2 text-xs text-zinc-400">
+                Paste an article/docs/tutorial URL. We will extract key content and create a curriculum.
+              </p>
+              {linkStatus && (
+                <p className="mt-3 text-[11px] font-semibold text-zinc-500 dark:text-zinc-300">
+                  {linkStatus}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -218,7 +345,13 @@ const CreatePath: React.FC = () => {
           </div>
           <button 
             onClick={handleCreate}
-            disabled={loading || profileLoading || (method === 'text' && content.trim().length < 5)}
+            disabled={
+              loading ||
+              profileLoading ||
+              (method === 'text' && content.trim().length < 5) ||
+              (method === 'upload' && !selectedPdf) ||
+              (method === 'link' && !linkUrl.trim())
+            }
             className="bg-peach text-white px-10 py-5 rounded-2xl font-bold flex items-center gap-2 hover:bg-peach/90 transition-all shadow-lg shadow-peach/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
           >
             {loading ? (

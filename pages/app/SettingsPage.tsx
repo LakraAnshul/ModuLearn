@@ -4,6 +4,15 @@ import { User, Bell, Shield, Palette, HelpCircle, LogOut, Moon, Sun, Loader2 } f
 import { useNavigate } from 'react-router-dom';
 import { db, UserProfile } from '../../lib/database.ts';
 
+const LANGUAGES = ['English', 'Spanish', 'Hindi', 'French', 'German', 'Chinese', 'Japanese', 'Arabic'];
+const GOALS = ['Exam Preparation', 'Skill Building', 'General Knowledge', 'Career Change'];
+const LEARNING_STYLES = [
+  'Visual (Videos/Graphs)',
+  'Textual (Detailed Reading)',
+  'Interactive (Quizzes)',
+  'Practical (Exercises)',
+];
+
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -15,6 +24,9 @@ const SettingsPage: React.FC = () => {
     email: '',
     gender: '',
     age: '',
+    languages: [],
+    goals: [],
+    learningStyles: [],
   });
 
   useEffect(() => {
@@ -27,6 +39,9 @@ const SettingsPage: React.FC = () => {
           email: data.email,
           gender: data.gender,
           age: data.age,
+          languages: data.languages || [],
+          goals: data.goals || [],
+          learningStyles: data.learningStyles || [],
         });
       }
       setLoading(false);
@@ -36,6 +51,17 @@ const SettingsPage: React.FC = () => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleMultiSelect = (field: 'languages' | 'goals' | 'learningStyles', value: string) => {
+    setFormData(prev => {
+      const current = prev[field] || [];
+      const exists = current.includes(value);
+      return {
+        ...prev,
+        [field]: exists ? current.filter((item) => item !== value) : [...current, value],
+      };
+    });
   };
 
   const handleSaveChanges = async () => {
@@ -187,6 +213,73 @@ const SettingsPage: React.FC = () => {
                      <div className="w-12 h-6 bg-peach rounded-full flex items-center px-1">
                         <div className="w-4 h-4 bg-white rounded-full ml-auto shadow-sm"></div>
                      </div>
+                  </div>
+
+                  <div className="p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
+                    <h5 className="font-bold text-sm dark:text-white mb-4">Preferred Languages</h5>
+                    <p className="text-xs text-zinc-400 mb-4">These were selected during onboarding and can be updated anytime.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {LANGUAGES.map((language) => {
+                        const selected = (formData.languages || []).includes(language);
+                        return (
+                          <button
+                            key={language}
+                            onClick={() => toggleMultiSelect('languages', language)}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                              selected
+                                ? 'bg-peach border-peach text-white'
+                                : 'bg-white dark:bg-zinc-700 border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-600'
+                            }`}
+                          >
+                            {language}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
+                    <h5 className="font-bold text-sm dark:text-white mb-4">Learning Goals</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {GOALS.map((goal) => {
+                        const selected = (formData.goals || []).includes(goal);
+                        return (
+                          <button
+                            key={goal}
+                            onClick={() => toggleMultiSelect('goals', goal)}
+                            className={`px-4 py-3 rounded-xl text-xs font-bold border text-left transition-all ${
+                              selected
+                                ? 'bg-peach border-peach text-white'
+                                : 'bg-white dark:bg-zinc-700 border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-600'
+                            }`}
+                          >
+                            {goal}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
+                    <h5 className="font-bold text-sm dark:text-white mb-4">Learning Style Preferences</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {LEARNING_STYLES.map((style) => {
+                        const selected = (formData.learningStyles || []).includes(style);
+                        return (
+                          <button
+                            key={style}
+                            onClick={() => toggleMultiSelect('learningStyles', style)}
+                            className={`px-4 py-3 rounded-xl text-xs font-bold border text-left transition-all ${
+                              selected
+                                ? 'bg-peach border-peach text-white'
+                                : 'bg-white dark:bg-zinc-700 border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-600'
+                            }`}
+                          >
+                            {style}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                </div>
             </div>

@@ -31,7 +31,188 @@ interface VideoItem {
   channelTitle: string;
   thumbnail: string;
   url: string;
+  language: string;
 }
+
+interface YouTubeSearchItem {
+  id?: { videoId?: string };
+  snippet?: {
+    title?: string;
+    channelTitle?: string;
+    thumbnails?: { medium?: { url?: string }; default?: { url?: string } };
+    defaultAudioLanguage?: string;
+    defaultLanguage?: string;
+    description?: string;
+  };
+}
+
+const renderInlineText = (value: string) => {
+  const parts = value.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+
+  return parts.map((part, index) => {
+    if (/^\*\*[^*]+\*\*$/.test(part)) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+};
+
+const isListLeadIn = (value: string) => {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized.endsWith(':')) {
+    return false;
+  }
+
+  return /(include|includes|following|follow these steps|key considerations|steps|points|as follows|below)/.test(normalized);
+};
+
+const renderStructuredExplanation = (content: string) => {
+  const lines = content.split('\n').map((line) => line.trimEnd());
+  const elements: React.ReactNode[] = [];
+  let previousBlockType: 'heading' | 'bullet-list' | 'numbered-list' | 'callout' | 'paragraph' | null = null;
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index].trim();
+
+    if (!line) {
+      index += 1;
+      continue;
+    }
+
+    if (/^#{1,3}\s+/.test(line)) {
+      const level = line.match(/^#{1,3}/)?.[0].length || 1;
+      const headingText = line.replace(/^#{1,3}\s+/, '');
+      const headingClass =
+        level === 1
+          ? 'text-xl font-extrabold text-zinc-900 dark:text-white mt-6 mb-3'
+          : level === 2
+            ? 'text-lg font-bold text-zinc-900 dark:text-white mt-5 mb-2'
+            : 'text-base font-bold text-zinc-800 dark:text-zinc-200 mt-4 mb-2';
+
+      elements.push(
+        <h3 key={`heading-${index}`} className={headingClass}>
+          {renderInlineText(headingText)}
+        </h3>
+      );
+      previousBlockType = 'heading';
+      index += 1;
+      continue;
+    }
+
+    if (/^[-*•]\s+/.test(line)) {
+      const items: string[] = [];
+      while (index < lines.length && /^[-*•]\s+/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^[-*•]\s+/, ''));
+        index += 1;
+      }
+
+      let listItems = items;
+      if (items.length > 1 && isListLeadIn(items[0])) {
+        elements.push(
+          <p key={`ul-lead-${index}`} className="text-zinc-700 dark:text-zinc-300 leading-relaxed my-3">
+            {renderInlineText(items[0])}
+          </p>
+        );
+        previousBlockType = 'paragraph';
+        listItems = items.slice(1);
+      }
+
+      if (listItems.length === 0) {
+        continue;
+      }
+
+      const listSpacingClass = previousBlockType === 'numbered-list' ? 'mt-6 mb-4' : 'my-4';
+
+      elements.push(
+        <ul key={`ul-${index}`} className={`list-disc pl-6 space-y-2 ${listSpacingClass} marker:text-peach`}>
+          {listItems.map((item, itemIndex) => (
+            <li key={`ul-item-${itemIndex}`} className="text-zinc-700 dark:text-zinc-300 leading-relaxed">
+              {renderInlineText(item)}
+            </li>
+          ))}
+        </ul>
+      );
+      previousBlockType = 'bullet-list';
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(line)) {
+      const items: string[] = [];
+      while (index < lines.length && /^\d+\.\s+/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^\d+\.\s+/, ''));
+        index += 1;
+      }
+
+      let listItems = items;
+      if (items.length > 1 && isListLeadIn(items[0])) {
+        elements.push(
+          <p key={`ol-lead-${index}`} className="text-zinc-700 dark:text-zinc-300 leading-relaxed my-3">
+            {renderInlineText(items[0])}
+          </p>
+        );
+        previousBlockType = 'paragraph';
+        listItems = items.slice(1);
+      }
+
+      if (listItems.length === 0) {
+        continue;
+      }
+
+      const listSpacingClass = previousBlockType === 'bullet-list' ? 'mt-6 mb-4' : 'my-4';
+
+      elements.push(
+        <ol key={`ol-${index}`} className={`list-decimal pl-6 space-y-2 ${listSpacingClass} marker:text-peach marker:font-bold`}>
+          {listItems.map((item, itemIndex) => (
+            <li key={`ol-item-${itemIndex}`} className="text-zinc-700 dark:text-zinc-300 leading-relaxed">
+              {renderInlineText(item)}
+            </li>
+          ))}
+        </ol>
+      );
+      previousBlockType = 'numbered-list';
+      continue;
+    }
+
+    if (/^>\s+/.test(line)) {
+      const callout = line.replace(/^>\s+/, '');
+      elements.push(
+        <div
+          key={`callout-${index}`}
+          className="my-4 rounded-xl border border-peach/30 bg-peach/10 px-4 py-3 text-zinc-700 dark:text-zinc-200"
+        >
+          {renderInlineText(callout)}
+        </div>
+      );
+      previousBlockType = 'callout';
+      index += 1;
+      continue;
+    }
+
+    const paragraphLines: string[] = [line];
+    index += 1;
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !/^#{1,3}\s+/.test(lines[index].trim()) &&
+      !/^[-*•]\s+/.test(lines[index].trim()) &&
+      !/^\d+\.\s+/.test(lines[index].trim()) &&
+      !/^>\s+/.test(lines[index].trim())
+    ) {
+      paragraphLines.push(lines[index].trim());
+      index += 1;
+    }
+
+    elements.push(
+      <p key={`p-${index}`} className="text-zinc-700 dark:text-zinc-300 leading-relaxed my-3">
+        {renderInlineText(paragraphLines.join(' '))}
+      </p>
+    );
+    previousBlockType = 'paragraph';
+  }
+
+  return elements;
+};
 
 const LearningInterface: React.FC = () => {
   const [activeModule, setActiveModule] = useState(0);
@@ -45,12 +226,37 @@ const LearningInterface: React.FC = () => {
   const [modules, setModules] = useState<CurriculumModule[]>([]);
   const [error, setError] = useState('');
   const [completedModules, setCompletedModules] = useState<Record<string, boolean>>({});
-  const [preferredLanguage, setPreferredLanguage] = useState('en');
+  const [selectedLanguageCodes, setSelectedLanguageCodes] = useState<string[]>(['en']);
   const [videosByModule, setVideosByModule] = useState<Record<string, VideoItem[]>>({});
   const [videosLoading, setVideosLoading] = useState(false);
   const [videosError, setVideosError] = useState('');
+  const [youtubeBlockedReason, setYoutubeBlockedReason] = useState('');
 
   const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+
+  const getDisplayLanguage = (languageCode: string): string => {
+    const normalized = (languageCode || '').trim().toLowerCase();
+    const map: Record<string, string> = {
+      en: 'English',
+      hi: 'Hindi',
+      es: 'Spanish',
+      fr: 'French',
+      de: 'German',
+      ar: 'Arabic',
+      pt: 'Portuguese',
+      bn: 'Bengali',
+      ta: 'Tamil',
+      te: 'Telugu',
+      ko: 'Korean',
+      ja: 'Japanese',
+      zh: 'Chinese',
+      mr: 'Marathi',
+    };
+
+    if (!normalized) return 'Unknown';
+    const shortCode = normalized.split('-')[0];
+    return map[normalized] || map[shortCode] || normalized.toUpperCase();
+  };
 
   const getLanguageCode = (language: string): string => {
     const normalized = language.trim().toLowerCase();
@@ -77,6 +283,120 @@ const LearningInterface: React.FC = () => {
     return 'en';
   };
 
+  const getLanguageKeyword = (languageCode: string): string => {
+    const shortCode = (languageCode || '').toLowerCase().split('-')[0];
+    const map: Record<string, string> = {
+      en: 'english',
+      hi: 'hindi',
+      es: 'spanish',
+      fr: 'french',
+      de: 'german',
+      ar: 'arabic',
+      pt: 'portuguese',
+      bn: 'bengali',
+      ta: 'tamil',
+      te: 'telugu',
+      ko: 'korean',
+      ja: 'japanese',
+      zh: 'chinese',
+      mr: 'marathi',
+    };
+
+    return map[shortCode] || shortCode;
+  };
+
+  const detectLikelyLanguageFromText = (text: string): string | null => {
+    if (!text) return null;
+
+    if (/[\u0900-\u097F]/.test(text)) return 'hi'; // Devanagari
+    if (/[\u0980-\u09FF]/.test(text)) return 'bn'; // Bengali
+    if (/[\u0B80-\u0BFF]/.test(text)) return 'ta'; // Tamil
+    if (/[\u0C00-\u0C7F]/.test(text)) return 'te'; // Telugu
+    if (/[\u0600-\u06FF]/.test(text)) return 'ar'; // Arabic
+    if (/[\u4E00-\u9FFF]/.test(text)) return 'zh'; // CJK Unified
+    if (/[\u3040-\u30FF]/.test(text)) return 'ja'; // Hiragana/Katakana
+    if (/[\uAC00-\uD7AF]/.test(text)) return 'ko'; // Hangul
+
+    return null;
+  };
+
+  const normalizeLanguageCode = (value?: string): string | null => {
+    if (!value) return null;
+    const cleaned = value.trim().toLowerCase();
+    if (!cleaned) return null;
+    return cleaned.split('-')[0];
+  };
+
+  const resolveVideoLanguage = (item: YouTubeSearchItem, requestedLanguage: string): string => {
+    const metadataLanguage = normalizeLanguageCode(item.snippet?.defaultAudioLanguage || item.snippet?.defaultLanguage);
+    const likelyFromText = detectLikelyLanguageFromText(`${item.snippet?.title || ''} ${item.snippet?.description || ''}`);
+    const requested = normalizeLanguageCode(requestedLanguage) || 'en';
+
+    // Strong textual signals should override metadata when they disagree.
+    if (likelyFromText && likelyFromText !== metadataLanguage) {
+      return likelyFromText;
+    }
+
+    if (metadataLanguage === requested || likelyFromText === requested) {
+      return requested;
+    }
+
+    return metadataLanguage || likelyFromText || requested;
+  };
+
+  const hasLanguageKeyword = (text: string, languageCode: string): boolean => {
+    const value = (text || '').toLowerCase();
+    const shortCode = normalizeLanguageCode(languageCode) || 'en';
+    const keywordMap: Record<string, string[]> = {
+      hi: ['hindi', 'hind', 'हिंदी', 'हिन्दी'],
+      en: ['english'],
+      es: ['spanish', 'espanol', 'español'],
+      fr: ['french', 'francais', 'français'],
+      de: ['german', 'deutsch'],
+      ar: ['arabic', 'عربي'],
+      ta: ['tamil'],
+      te: ['telugu'],
+      bn: ['bengali', 'bangla'],
+      ja: ['japanese', 'nihongo'],
+      ko: ['korean'],
+      zh: ['chinese', 'mandarin'],
+    };
+
+    const hints = keywordMap[shortCode] || [getLanguageKeyword(shortCode)];
+    return hints.some((hint) => value.includes(hint));
+  };
+
+  const scoreLanguageMatch = (item: YouTubeSearchItem, requestedLanguage: string): number => {
+    const requested = normalizeLanguageCode(requestedLanguage) || 'en';
+    const metadata = normalizeLanguageCode(item.snippet?.defaultAudioLanguage || item.snippet?.defaultLanguage);
+    const text = `${item.snippet?.title || ''} ${item.snippet?.description || ''}`;
+    const detected = detectLikelyLanguageFromText(text);
+    const textLower = text.toLowerCase();
+
+    let score = 0;
+
+    if (metadata === requested) score += 4;
+    if (detected === requested) score += 5;
+    if (hasLanguageKeyword(textLower, requested)) score += 3;
+
+    // Penalize obvious Hindi indicators when targeting English.
+    if (
+      requested === 'en' &&
+      (/[\u0900-\u097F]/.test(text) || hasLanguageKeyword(textLower, 'hi') || metadata === 'hi' || detected === 'hi')
+    ) {
+      score -= 8;
+    }
+
+    if (metadata && metadata !== requested) score -= 2;
+    if (detected && detected !== requested) score -= 2;
+
+    return score;
+  };
+
+  const buildVideoCacheKey = (moduleId: string, languageCodes: string[]): string => {
+    return `${moduleId}__${languageCodes.join('_')}`;
+  };
+
   useEffect(() => {
     const state = location.state as LocationState;
     if (!state?.curriculum) {
@@ -92,7 +412,10 @@ const LearningInterface: React.FC = () => {
       try {
         const profile = await db.getProfile();
         if (profile?.languages?.length) {
-          setPreferredLanguage(getLanguageCode(profile.languages[0]));
+          const codes = profile.languages
+            .map((lang) => getLanguageCode(lang))
+            .filter(Boolean);
+          setSelectedLanguageCodes(codes.length ? codes : ['en']);
         }
       } catch (err) {
         console.warn('Failed to load preferred language:', err);
@@ -143,7 +466,17 @@ const LearningInterface: React.FC = () => {
     const fetchVideos = async () => {
       const currentModuleLocal = modules[activeModule];
       if (!curriculum || !currentModuleLocal) return;
-      if (videosByModule[currentModuleLocal.id]) return;
+
+      if (youtubeBlockedReason) {
+        setVideosError(youtubeBlockedReason);
+        return;
+      }
+
+      const baseLanguages = selectedLanguageCodes.length ? selectedLanguageCodes : ['en'];
+      const targetLanguageCodes = baseLanguages.length === 1 ? [baseLanguages[0], baseLanguages[0]] : baseLanguages.slice(0, 2);
+      const cacheKey = buildVideoCacheKey(currentModuleLocal.id, targetLanguageCodes);
+
+      if (videosByModule[cacheKey]) return;
       if (!youtubeApiKey) {
         setVideosError('YouTube API key not configured.');
         return;
@@ -153,42 +486,138 @@ const LearningInterface: React.FC = () => {
       setVideosError('');
 
       try {
+        const recommendedQueries = Array.isArray(currentModuleLocal.recommendedVideos)
+          ? currentModuleLocal.recommendedVideos.slice(0, 2)
+          : [];
+
         const queryParts = [
           curriculum.title,
           currentModuleLocal.title,
+          ...recommendedQueries,
           ...(currentModuleLocal.subtopics || []).slice(0, 2)
         ];
-        const query = queryParts.filter(Boolean).join(' ');
-        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=2&q=${encodeURIComponent(query)}&relevanceLanguage=${preferredLanguage}&safeSearch=moderate&key=${youtubeApiKey}`;
+        const baseQuery = queryParts.filter(Boolean).join(' ');
 
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error('Failed to fetch YouTube videos');
+        const byLanguage: VideoItem[] = [];
+        const usedVideoIds = new Set<string>();
+
+        const fetchSearchItems = async (query: string, languageCode: string): Promise<YouTubeSearchItem[]> => {
+          const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(query)}&relevanceLanguage=${languageCode}&safeSearch=moderate&key=${youtubeApiKey}`;
+          const response = await fetch(url);
+          if (!response.ok) {
+            const errorBody = await response.json().catch(() => null);
+            const reason = errorBody?.error?.errors?.[0]?.reason || errorBody?.error?.status || 'unknown';
+            const message = errorBody?.error?.message || 'Failed to fetch YouTube videos';
+            throw new Error(`YouTube API ${response.status}: ${reason} - ${message}`);
+          }
+          const data = await response.json();
+          return data.items || [];
+        };
+
+        // Try to pick one candidate per selected language first.
+        for (const languageCode of targetLanguageCodes) {
+          const languageKeyword = getLanguageKeyword(languageCode);
+          const queryWithLanguage = `${baseQuery} ${languageKeyword}`;
+          let items: YouTubeSearchItem[] = await fetchSearchItems(queryWithLanguage, languageCode);
+
+          // Fallback if language-keyword query is too narrow.
+          if (!items.length) {
+            items = await fetchSearchItems(baseQuery, languageCode);
+          }
+
+          if (!items.length) {
+            continue;
+          }
+
+          const scoredItems = items
+            .map((item) => ({ item, score: scoreLanguageMatch(item, languageCode) }))
+            .sort((a, b) => b.score - a.score);
+
+          // Always take the top-ranked candidate when available to prevent empty recommendations.
+          const bestMatch = (scoredItems.find(({ item }) => {
+            const id = item.id?.videoId;
+            return !!id && !usedVideoIds.has(id);
+          })?.item) || items.find((item) => {
+            const id = item.id?.videoId;
+            return !!id && !usedVideoIds.has(id);
+          }) || items[0];
+
+          if (!bestMatch?.id?.videoId || !bestMatch?.snippet?.title) {
+            continue;
+          }
+
+          byLanguage.push({
+            id: bestMatch.id.videoId,
+            title: bestMatch.snippet.title,
+            channelTitle: bestMatch.snippet.channelTitle || '',
+            thumbnail: bestMatch.snippet.thumbnails?.medium?.url || bestMatch.snippet.thumbnails?.default?.url || '',
+            url: `https://www.youtube.com/watch?v=${bestMatch.id.videoId}`,
+            // Keep the label aligned with the selected language bucket.
+            language: normalizeLanguageCode(languageCode) || resolveVideoLanguage(bestMatch, languageCode),
+          });
+
+          usedVideoIds.add(bestMatch.id.videoId);
         }
 
-        const data = await response.json();
-        const videos: VideoItem[] = (data.items || []).map((item: any) => ({
-          id: item.id?.videoId,
-          title: item.snippet?.title,
-          channelTitle: item.snippet?.channelTitle,
-          thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url,
-          url: `https://www.youtube.com/watch?v=${item.id?.videoId}`
-        })).filter((video: VideoItem) => video.id && video.title);
+        // If language-specific picks are not enough, fill remaining slots from broad results.
+        if (byLanguage.length < 2) {
+          const broadItems = await fetchSearchItems(baseQuery, 'en');
 
-        setVideosByModule(prev => ({
-          ...prev,
-          [currentModuleLocal.id]: videos
-        }));
+          for (const item of broadItems) {
+            const videoId = item.id?.videoId;
+            const title = item.snippet?.title;
+            if (!videoId || !title || usedVideoIds.has(videoId)) {
+              continue;
+            }
+
+            byLanguage.push({
+              id: videoId,
+              title,
+              channelTitle: item.snippet?.channelTitle || '',
+              thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
+              url: `https://www.youtube.com/watch?v=${videoId}`,
+              language: resolveVideoLanguage(item, targetLanguageCodes[0] || 'en'),
+            });
+
+            usedVideoIds.add(videoId);
+            if (byLanguage.length >= 2) {
+              break;
+            }
+          }
+        }
+
+        const videos = byLanguage.slice(0, 2);
+
+        if (videos.length > 0) {
+          setVideosByModule(prev => ({
+            ...prev,
+            [cacheKey]: videos
+          }));
+          setVideosError('');
+        } else {
+          setVideosError('Unable to find matching videos right now. Please try another module.');
+        }
       } catch (err) {
         console.error('YouTube fetch failed:', err);
-        setVideosError('Unable to load recommended videos right now.');
+        const message = err instanceof Error ? err.message : 'Unable to load recommended videos right now.';
+
+        if (/YouTube API 403/i.test(message)) {
+          const keyConfigHint =
+            'YouTube API access is blocked (403). Check API key validity, enable YouTube Data API v3, add correct HTTP referrer restrictions, and verify quota.';
+          setVideosError(keyConfigHint);
+          setYoutubeBlockedReason(keyConfigHint);
+        } else if (/quota|dailyLimitExceeded|rateLimitExceeded/i.test(message)) {
+          setVideosError('YouTube quota exceeded. Please try again later or use another API key.');
+        } else {
+          setVideosError('Unable to load recommended videos right now.');
+        }
       } finally {
         setVideosLoading(false);
       }
     };
 
     fetchVideos();
-  }, [curriculum, modules, activeModule, preferredLanguage, videosByModule, youtubeApiKey]);
+  }, [curriculum, modules, activeModule, selectedLanguageCodes, videosByModule, youtubeApiKey, youtubeBlockedReason]);
 
   if (error) {
     return (
@@ -219,7 +648,11 @@ const LearningInterface: React.FC = () => {
   const currentModule = modules[activeModule];
   const moduleProgress = ((activeModule + 1) / modules.length * 100).toFixed(0);
   const isCompleted = currentModule ? !!completedModules[currentModule.id] : false;
-  const currentVideos = currentModule ? videosByModule[currentModule.id] || [] : [];
+  const baseLanguages = selectedLanguageCodes.length ? selectedLanguageCodes : ['en'];
+  const activeLanguageCodes = baseLanguages.length === 1 ? [baseLanguages[0], baseLanguages[0]] : baseLanguages.slice(0, 2);
+  const languageBadgeCodes: string[] = Array.from(new Set<string>(activeLanguageCodes));
+  const currentCacheKey = currentModule ? buildVideoCacheKey(currentModule.id, activeLanguageCodes) : '';
+  const currentVideos = currentModule ? videosByModule[currentCacheKey] || [] : [];
 
   return (
     <div className="flex h-screen w-screen bg-white dark:bg-zinc-950 overflow-hidden">
@@ -343,7 +776,9 @@ const LearningInterface: React.FC = () => {
               <div className="bg-white dark:bg-zinc-900 p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Recommended Videos</h3>
-                  <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Lang: {preferredLanguage.toUpperCase()}</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">
+                    Langs: {languageBadgeCodes.map((code) => getDisplayLanguage(code)).join(', ')}
+                  </span>
                 </div>
 
                 {videosLoading ? (
@@ -371,6 +806,9 @@ const LearningInterface: React.FC = () => {
                           )}
                         </div>
                         <div className="p-4">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-peach mb-2">
+                            {getDisplayLanguage(video.language)}
+                          </p>
                           <h4 className="text-sm font-bold text-zinc-900 dark:text-white line-clamp-2">{video.title}</h4>
                           <p className="text-xs text-zinc-500 mt-2">{video.channelTitle}</p>
                         </div>
@@ -407,9 +845,7 @@ const LearningInterface: React.FC = () => {
                   </div>
                 ) : topicExplanation ? (
                   <div className="prose prose-zinc dark:prose-invert max-w-none">
-                    <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                      {topicExplanation}
-                    </p>
+                    <div className="space-y-1">{renderStructuredExplanation(topicExplanation)}</div>
                   </div>
                 ) : null}
               </div>
