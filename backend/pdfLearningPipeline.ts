@@ -1,4 +1,4 @@
-import { GeneratedCurriculum } from './groqService.ts';
+import { GeneratedCurriculum, LearningPreferences } from './groqService.ts';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
@@ -50,6 +50,7 @@ export interface PdfPipelineResult {
 
 interface ProcessPdfOptions {
   educationLevel: 'school' | 'college' | 'professional';
+  preferences: LearningPreferences;
   onProgress?: (message: string) => void;
 }
 
@@ -412,16 +413,46 @@ Return ONLY valid JSON:
 const buildCurriculumFromSections = async (
   documentTitle: string,
   educationLevel: 'school' | 'college' | 'professional',
+  preferences: LearningPreferences,
   sections: SectionProcessedResult[],
 ): Promise<GeneratedCurriculum> => {
   const sectionInput = sections
     .map((section) => `${section.title}\nSummary: ${section.summary}\nKey points: ${section.keyPoints.join('; ')}\nVideo queries: ${section.recommendedVideoQueries.join('; ')}`)
     .join('\n\n');
 
+  const depthGuidance: Record<LearningPreferences['depth'], string> = {
+    quick_overview: `Depth target: Quick Overview.
+- Create only 1-2 modules total.
+- Keep coverage short, essential, and high-signal.
+- Avoid long explanations and exhaustive detail.`,
+    structured_learning: `Depth target: Structured Learning.
+- Create 4-6 modules total.
+- Build understanding progressively from fundamentals to practical use.
+- Keep moderate depth with clear structure.`,
+    deep_mastery: `Depth target: Deep Mastery.
+- Create 7-10 modules total.
+- Focus on deep technical understanding and advanced applications.
+- Include nuanced and expert-level subtopics where relevant.`,
+  };
+
+  const familiarityGuidance: Record<LearningPreferences['familiarity'], string> = {
+    new_to_topic: `User familiarity: New to this topic.
+- Include a short beginner foundation before advanced concepts.
+- Explain key terms before using them deeply.`,
+    some_experience: `User familiarity: Some experience.
+- Keep beginner recap minimal.
+- Move quickly to intermediate concepts and practical depth.`,
+    already_comfortable: `User familiarity: Already comfortable.
+- Skip basic introductions.
+- Prioritize advanced topics, optimization, and deeper analysis.`,
+  };
+
   const prompt = `You are an expert curriculum architect. Build a full learning path from processed textbook sections.
 
 Document title: ${documentTitle}
 Education level: ${educationLevel}
+${depthGuidance[preferences.depth] || depthGuidance.structured_learning}
+${familiarityGuidance[preferences.familiarity] || familiarityGuidance.new_to_topic}
 
 Section summaries:
 ${sectionInput}
@@ -447,7 +478,7 @@ Return ONLY valid JSON with this exact structure:
 Rules:
 - Include all major ideas from the section summaries.
 - Keep module progression logical and complete.
-- 4-12 modules based on content volume.
+- Respect selected depth and familiarity when choosing module count and complexity.
 - recommendedVideos must be actionable YouTube search phrases.
 - Use numeric values (not strings) for totalEstimatedHours and estimatedMinutes.`;
 
@@ -506,7 +537,7 @@ const extractPdfPages = async (file: File): Promise<{ pageNumber: number; text: 
 
 export const pdfLearningPipeline = {
   async processPdf(file: File, options: ProcessPdfOptions): Promise<PdfPipelineResult> {
-    const { educationLevel, onProgress } = options;
+    const { educationLevel, preferences, onProgress } = options;
 
     if (!file || file.type !== 'application/pdf') {
       throw new Error('Please upload a valid PDF file.');
@@ -572,7 +603,7 @@ export const pdfLearningPipeline = {
     }
 
     onProgress?.('Generating final chapter/module curriculum...');
-    const curriculum = await buildCurriculumFromSections(file.name.replace(/\.pdf$/i, ''), educationLevel, sectionResults);
+    const curriculum = await buildCurriculumFromSections(file.name.replace(/\.pdf$/i, ''), educationLevel, preferences, sectionResults);
 
     return {
       curriculum,

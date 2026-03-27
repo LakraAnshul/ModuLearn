@@ -8,7 +8,6 @@ import {
   Settings, 
   LogOut,
   Bell,
-  Search,
   Loader2
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.ts';
@@ -40,6 +39,7 @@ const AppLayout: React.FC = () => {
 
   // Check if we're in learning interface - hide sidebars for full content view
   const isLearningPath = currentPath.includes('/app/path/');
+  const showCompactTopBar = ['/app', '/app/create', '/app/progress', '/app/library', '/app/settings'].includes(currentPath);
 
   useEffect(() => {
     async function checkAuth() {
@@ -94,7 +94,7 @@ const AppLayout: React.FC = () => {
       {!isLearningPath && (
         <aside className="w-72 bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 flex flex-col fixed inset-y-0 left-0 z-40 transition-colors duration-200 max-w-[288px]">
           <div className="p-8 pb-12 flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
+            <Link to="/app" className="flex items-center gap-2">
               <img src={logo} alt="ModuLearn" className="w-8 h-8 object-contain" />
               <span className="text-xl font-extrabold tracking-tight dark:text-white">ModuLearn</span>
             </Link>
@@ -120,10 +120,10 @@ const AppLayout: React.FC = () => {
               active={currentPath === '/app/progress'} 
             />
             <SidebarItem 
-              to="/app" 
+              to="/app/library" 
               icon={<Library size={20} />} 
               label="Library" 
-              active={false} 
+              active={currentPath === '/app/library'} 
             />
             <SidebarItem 
               to="/app/settings" 
@@ -147,24 +147,14 @@ const AppLayout: React.FC = () => {
 
       {/* Main Content */}
       <main className={`flex-1 ${!isLearningPath ? 'ml-72' : 'ml-0'} w-full min-w-0 transition-all duration-300`}>
-        {/* Header - Hidden on learning path */}
-        {!isLearningPath && (
-          <header className="h-24 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-30 flex items-center justify-between px-10 border-b border-zinc-100 dark:border-zinc-800 transition-colors duration-200 w-full overflow-hidden">
-            <div className="flex items-center gap-4 bg-zinc-100 dark:bg-zinc-800 px-5 py-2.5 rounded-full w-96 max-w-full">
-              <Search size={18} className="text-zinc-400" />
-              <input 
-                type="text" 
-                placeholder="Search library..." 
-                className="bg-transparent border-none outline-none text-sm w-full font-medium dark:text-white dark:placeholder-zinc-500" 
-              />
-            </div>
-            
+        {!isLearningPath && showCompactTopBar && (
+          <div className="sticky top-0 z-30 px-10 pt-6 pb-2 flex justify-end">
             <div className="flex items-center gap-6">
               <button className="relative text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
                 <Bell size={22} />
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-peach text-white text-[10px] flex items-center justify-center rounded-full font-bold border-2 border-white dark:border-zinc-900">2</span>
               </button>
-              <div className="flex items-center gap-3 pl-6 border-l border-zinc-100 dark:border-zinc-800">
+              <div className="flex items-center gap-3 pl-6 border-l border-zinc-200 dark:border-zinc-800">
                 <div className="text-right">
                   <p className="text-sm font-bold dark:text-white">{profile?.fullName || 'User'}</p>
                   <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">{profile?.educationLevel === 'college' ? (profile?.course || 'Student') : (profile?.class ? `Grade ${profile.class}` : 'Student')}</p>
@@ -194,7 +184,7 @@ const AppLayout: React.FC = () => {
                 </div>
               </div>
             </div>
-          </header>
+          </div>
         )}
 
         <div className={`${isLearningPath ? 'p-0' : 'p-10'} w-full overflow-x-hidden transition-all duration-300`}>

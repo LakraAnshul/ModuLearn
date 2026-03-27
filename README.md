@@ -111,7 +111,7 @@ The app will be available at **http://localhost:5173**
 
 ### Get Your Supabase Credentials
 
-1. Visit [supabase.com](https://supabase.com)
+1. Visit [supabase.co](https://supabase.co)
 2. Create a new project
 3. Go to **Settings > API**
 4. Copy `Project URL` and `Anon Key`
@@ -239,7 +239,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📚 Learning Resources
 
 - [Groq API Documentation](https://console.groq.com/docs)
-- [Supabase Documentation](https://supabase.com/docs)
+- [Supabase Documentation](https://supabase.co/docs)
 - [React Documentation](https://react.dev)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
 - [Vite Guide](https://vitejs.dev/guide/)

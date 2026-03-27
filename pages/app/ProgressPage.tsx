@@ -54,8 +54,8 @@ const ProgressPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white dark:bg-zinc-900 p-10 rounded-[40px] border border-zinc-100 dark:border-zinc-800 shadow-xl dark:shadow-none shadow-zinc-100 transition-colors duration-200">
            <h3 className="text-xl font-bold mb-10 dark:text-white">Learning Activity (Hours/Day)</h3>
-           <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-80 w-full min-w-0">
+              <ResponsiveContainer width="100%" height={320} minWidth={0}>
                 <BarChart data={data}>
                   <XAxis 
                     dataKey="name" 

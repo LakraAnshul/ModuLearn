@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import Editor from '@monaco-editor/react';
 import { 
   ArrowLeft, 
   ChevronRight, 
@@ -11,18 +12,37 @@ import {
   Clock,
   AlertCircle,
   Loader2,
-  X
+  X,
+  Play,
+  Code2
 } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { GeneratedCurriculum, CurriculumModule } from '../../backend/groqService.ts';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { GeneratedCurriculum, CurriculumModule, LearningPreferences } from '../../backend/groqService.ts';
 import { groqService } from '../../backend/groqService.ts';
-import { db } from '../../lib/database.ts';
+import { db, UserProfile } from '../../lib/database.ts';
+import { findTopicTimestamp, TopicTimestampResult, formatSeconds } from '../../lib/topicTimestampService.ts';
+import {
+  detectCodingContext,
+  getPracticeLanguageOptions,
+  buildCodingQuestionSetForModule,
+  shouldShowCodingPractice,
+  getStarterTemplate,
+  CodingTestCase,
+  SupportedProgrammingLanguage,
+} from '../../lib/codingPractice.ts';
+import {
+  runCodeWithJudge0,
+  runCodeAgainstTestCases,
+  RunCodeResult,
+  RunTestSuiteResult,
+} from '../../lib/judge0Service.ts';
 
 interface LocationState {
   curriculum: GeneratedCurriculum;
   modules: CurriculumModule[];
   topic: string;
   educationLevel: string;
+  generationPreferences?: LearningPreferences;
 }
 
 interface VideoItem {
@@ -32,7 +52,45 @@ interface VideoItem {
   thumbnail: string;
   url: string;
   language: string;
+  description?: string;
+  topicTimestamps?: Record<string, TopicTimestampResult>;
 }
+
+interface ModuleRunResult {
+  output: string;
+  status: string;
+  executionTime: string | null;
+  memoryKb: number | null;
+  error?: string;
+}
+
+interface AttemptHistoryEntry {
+  attemptedAt: string;
+  language: SupportedProgrammingLanguage;
+  passed: number;
+  total: number;
+  status: string;
+  questionTitle?: string;
+}
+
+type YouTubeDuration = 'any' | 'short' | 'medium' | 'long';
+
+const LANGUAGE_OPTIONS: { code: string; label: string }[] = [
+  { code: 'en', label: 'English' },
+  { code: 'hi', label: 'Hindi' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'fr', label: 'French' },
+  { code: 'de', label: 'German' },
+  { code: 'pt', label: 'Portuguese' },
+  { code: 'ar', label: 'Arabic' },
+  { code: 'bn', label: 'Bengali' },
+  { code: 'ta', label: 'Tamil' },
+  { code: 'te', label: 'Telugu' },
+  { code: 'ja', label: 'Japanese' },
+  { code: 'ko', label: 'Korean' },
+  { code: 'zh', label: 'Chinese' },
+  { code: 'mr', label: 'Marathi' },
+];
 
 interface YouTubeSearchItem {
   id?: { videoId?: string };
@@ -72,11 +130,78 @@ const renderStructuredExplanation = (content: string) => {
   let previousBlockType: 'heading' | 'bullet-list' | 'numbered-list' | 'callout' | 'paragraph' | null = null;
   let index = 0;
 
+  const renderCodeBlock = (languageHint: string, codeText: string, key: string) => {
+    elements.push(
+      <div key={key} className="my-5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-950/95 dark:bg-zinc-900 overflow-hidden">
+        {languageHint && (
+          <div className="px-4 py-2 border-b border-zinc-700 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+            {languageHint}
+          </div>
+        )}
+        <pre className="px-4 py-4 overflow-x-auto text-xs leading-relaxed text-zinc-100">
+          <code>{codeText}</code>
+        </pre>
+      </div>
+    );
+  };
+
   while (index < lines.length) {
-    const line = lines[index].trim();
+    const rawLine = lines[index];
+    const line = rawLine.trim();
 
     if (!line) {
       index += 1;
+      continue;
+    }
+
+    const inlineFenceMatch = rawLine.match(/^(.*)```([a-zA-Z0-9_-]*)\s*([^`]+?)\s*```(.*)$/);
+    if (inlineFenceMatch) {
+      const prefix = inlineFenceMatch[1]?.trim();
+      const languageHint = inlineFenceMatch[2]?.trim() || '';
+      const codeText = inlineFenceMatch[3]?.trim() || '';
+      const suffix = inlineFenceMatch[4]?.trim();
+
+      if (prefix) {
+        elements.push(
+          <p key={`inline-prefix-${index}`} className="text-zinc-700 dark:text-zinc-300 leading-relaxed my-3">
+            {renderInlineText(prefix)}
+          </p>
+        );
+      }
+
+      if (codeText) {
+        renderCodeBlock(languageHint, codeText, `inline-code-${index}`);
+      }
+
+      if (suffix) {
+        elements.push(
+          <p key={`inline-suffix-${index}`} className="text-zinc-700 dark:text-zinc-300 leading-relaxed my-3">
+            {renderInlineText(suffix)}
+          </p>
+        );
+      }
+
+      previousBlockType = 'paragraph';
+      index += 1;
+      continue;
+    }
+
+    if (/^```/.test(line)) {
+      const languageHint = line.replace(/^```/, '').trim();
+      index += 1;
+
+      const codeLines: string[] = [];
+      while (index < lines.length && !/^```/.test(lines[index].trim())) {
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+
+      if (index < lines.length && /^```/.test(lines[index].trim())) {
+        index += 1;
+      }
+
+      renderCodeBlock(languageHint, codeLines.join('\n'), `code-${index}`);
+      previousBlockType = 'paragraph';
       continue;
     }
 
@@ -222,15 +347,33 @@ const LearningInterface: React.FC = () => {
   const [explanationLoading, setExplanationLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { id: pathId } = useParams<{ id: string }>();
   const [curriculum, setCurriculum] = useState<GeneratedCurriculum | null>(null);
   const [modules, setModules] = useState<CurriculumModule[]>([]);
   const [error, setError] = useState('');
   const [completedModules, setCompletedModules] = useState<Record<string, boolean>>({});
+  const [savedPathId, setSavedPathId] = useState<string | null>(null);
   const [selectedLanguageCodes, setSelectedLanguageCodes] = useState<string[]>(['en']);
+  const [selectedVideoDuration, setSelectedVideoDuration] = useState<YouTubeDuration>('any');
   const [videosByModule, setVideosByModule] = useState<Record<string, VideoItem[]>>({});
   const [videosLoading, setVideosLoading] = useState(false);
   const [videosError, setVideosError] = useState('');
   const [youtubeBlockedReason, setYoutubeBlockedReason] = useState('');
+  const [topicTimestampLoading, setTopicTimestampLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [generationPreferences, setGenerationPreferences] = useState<LearningPreferences>({
+    depth: 'structured_learning',
+    familiarity: 'new_to_topic',
+  });
+  const [activeQuestionIndexByModule, setActiveQuestionIndexByModule] = useState<Record<string, number>>({});
+  const [codeByQuestion, setCodeByQuestion] = useState<Record<string, string>>({});
+  const [stdinByQuestion, setStdinByQuestion] = useState<Record<string, string>>({});
+  const [practiceLanguageByModule, setPracticeLanguageByModule] = useState<Record<string, SupportedProgrammingLanguage>>({});
+  const [runLoadingByQuestion, setRunLoadingByQuestion] = useState<Record<string, boolean>>({});
+  const [runResultsByQuestion, setRunResultsByQuestion] = useState<Record<string, ModuleRunResult>>({});
+  const [testSuiteResultsByQuestion, setTestSuiteResultsByQuestion] = useState<Record<string, RunTestSuiteResult>>({});
+  const [attemptHistoryByModule, setAttemptHistoryByModule] = useState<Record<string, AttemptHistoryEntry[]>>({});
+  const [attemptsLoadedFromDb, setAttemptsLoadedFromDb] = useState<Record<string, boolean>>({});
 
   const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
 
@@ -393,29 +536,121 @@ const LearningInterface: React.FC = () => {
     return score;
   };
 
-  const buildVideoCacheKey = (moduleId: string, languageCodes: string[]): string => {
-    return `${moduleId}__${languageCodes.join('_')}`;
+  const buildVideoCacheKey = (
+    moduleId: string,
+    languageCodes: string[],
+    duration: YouTubeDuration,
+  ): string => {
+    return `${moduleId}__${languageCodes.join('_')}__${duration}`;
+  };
+
+  const toggleLanguageSelection = (languageCode: string) => {
+    setSelectedLanguageCodes((prev) => {
+      const normalized = normalizeLanguageCode(languageCode) || 'en';
+      if (prev.includes(normalized)) {
+        const remaining = prev.filter((code) => code !== normalized);
+        return remaining.length ? remaining : ['en'];
+      }
+
+      const next = [...prev, normalized];
+      return next.slice(-2);
+    });
   };
 
   useEffect(() => {
-    const state = location.state as LocationState;
-    if (!state?.curriculum) {
-      setError('No curriculum data. Please generate a new learning path.');
-      return;
-    }
-    setCurriculum(state.curriculum);
-    setModules(state.modules || []);
-  }, [location]);
+    const loadLearningPath = async () => {
+      const state = location.state as LocationState | undefined;
+      if (state?.curriculum) {
+        setCurriculum(state.curriculum);
+        setModules(state.modules || []);
+        if (state.generationPreferences) {
+          setGenerationPreferences(state.generationPreferences);
+        }
+        if (pathId) {
+          setSavedPathId(pathId);
+          await db.touchLearningPath(pathId);
+        }
+        return;
+      }
+
+      if (!pathId) {
+        setError('No curriculum data. Please generate a new learning path.');
+        return;
+      }
+
+      try {
+        const savedPath = await db.getLearningPathById(pathId);
+        if (!savedPath) {
+          setError('Learning path not found. Please create a new one.');
+          return;
+        }
+
+        setSavedPathId(savedPath.id);
+        setCurriculum({
+          title: savedPath.title,
+          description: savedPath.description,
+          totalEstimatedHours: savedPath.totalEstimatedHours,
+          educationLevel: savedPath.educationLevel,
+          modules: savedPath.modules,
+        });
+        setModules(savedPath.modules || []);
+        setGenerationPreferences(savedPath.generationPreferences);
+        setActiveModule(Math.max(0, Math.min(savedPath.currentModuleIndex || 0, (savedPath.modules?.length || 1) - 1)));
+
+        const completedMap = (savedPath.completedModuleIds || []).reduce<Record<string, boolean>>((acc, moduleId) => {
+          acc[moduleId] = true;
+          return acc;
+        }, {});
+        setCompletedModules(completedMap);
+        await db.touchLearningPath(savedPath.id);
+      } catch (err) {
+        console.error('Failed to load saved learning path:', err);
+        setError('Unable to load saved learning path. Please try again.');
+      }
+    };
+
+    loadLearningPath();
+  }, [location, pathId]);
+
+  useEffect(() => {
+    const persistProgress = async () => {
+      if (!savedPathId || modules.length === 0) {
+        return;
+      }
+
+      const completedIds = Object.entries(completedModules)
+        .filter(([, isDone]) => isDone)
+        .map(([moduleId]) => moduleId);
+      const progressPercent = Math.round((completedIds.length / modules.length) * 100);
+
+      try {
+        await db.updateLearningPathProgress(savedPathId, {
+          completedModuleIds: completedIds,
+          currentModuleIndex: activeModule,
+          progressPercent,
+        });
+      } catch (err) {
+        console.warn('Failed to persist progress update:', err);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      persistProgress();
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [savedPathId, activeModule, completedModules, modules.length]);
 
   useEffect(() => {
     const loadLanguage = async () => {
       try {
         const profile = await db.getProfile();
+        setUserProfile(profile);
         if (profile?.languages?.length) {
           const codes = profile.languages
             .map((lang) => getLanguageCode(lang))
             .filter(Boolean);
-          setSelectedLanguageCodes(codes.length ? codes : ['en']);
+          setSelectedLanguageCodes(codes.length ? Array.from(new Set(codes)).slice(0, 2) : ['en']);
         }
       } catch (err) {
         console.warn('Failed to load preferred language:', err);
@@ -443,7 +678,16 @@ const LearningInterface: React.FC = () => {
         topicName,
         currentModule?.title || 'Module',
         curriculum?.title || 'Topic',
-        curriculum?.educationLevel || 'college'
+        {
+          educationLevel: curriculum?.educationLevel || 'college',
+          preferences: generationPreferences,
+          schoolClass: userProfile?.class,
+          course: userProfile?.course,
+          field: userProfile?.field,
+          domain: userProfile?.domain,
+          moduleDescription: currentModule?.description,
+          moduleSubtopics: currentModule?.subtopics,
+        }
       );
       setTopicExplanation(explanation);
     } catch (err) {
@@ -474,7 +718,7 @@ const LearningInterface: React.FC = () => {
 
       const baseLanguages = selectedLanguageCodes.length ? selectedLanguageCodes : ['en'];
       const targetLanguageCodes = baseLanguages.length === 1 ? [baseLanguages[0], baseLanguages[0]] : baseLanguages.slice(0, 2);
-      const cacheKey = buildVideoCacheKey(currentModuleLocal.id, targetLanguageCodes);
+      const cacheKey = buildVideoCacheKey(currentModuleLocal.id, targetLanguageCodes, selectedVideoDuration);
 
       if (videosByModule[cacheKey]) return;
       if (!youtubeApiKey) {
@@ -502,7 +746,8 @@ const LearningInterface: React.FC = () => {
         const usedVideoIds = new Set<string>();
 
         const fetchSearchItems = async (query: string, languageCode: string): Promise<YouTubeSearchItem[]> => {
-          const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(query)}&relevanceLanguage=${languageCode}&safeSearch=moderate&key=${youtubeApiKey}`;
+          const durationQuery = selectedVideoDuration !== 'any' ? `&videoDuration=${selectedVideoDuration}` : '';
+          const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(query)}&relevanceLanguage=${languageCode}&safeSearch=moderate${durationQuery}&key=${youtubeApiKey}`;
           const response = await fetch(url);
           if (!response.ok) {
             const errorBody = await response.json().catch(() => null);
@@ -546,15 +791,17 @@ const LearningInterface: React.FC = () => {
             continue;
           }
 
-          byLanguage.push({
+          const videoItem: VideoItem = {
             id: bestMatch.id.videoId,
             title: bestMatch.snippet.title,
             channelTitle: bestMatch.snippet.channelTitle || '',
             thumbnail: bestMatch.snippet.thumbnails?.medium?.url || bestMatch.snippet.thumbnails?.default?.url || '',
             url: `https://www.youtube.com/watch?v=${bestMatch.id.videoId}`,
-            // Keep the label aligned with the selected language bucket.
+            description: bestMatch.snippet.description || '',
             language: normalizeLanguageCode(languageCode) || resolveVideoLanguage(bestMatch, languageCode),
-          });
+            topicTimestamps: {},
+          };
+          byLanguage.push(videoItem);
 
           usedVideoIds.add(bestMatch.id.videoId);
         }
@@ -570,14 +817,17 @@ const LearningInterface: React.FC = () => {
               continue;
             }
 
-            byLanguage.push({
+            const videoItem: VideoItem = {
               id: videoId,
               title,
               channelTitle: item.snippet?.channelTitle || '',
               thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
               url: `https://www.youtube.com/watch?v=${videoId}`,
+              description: item.snippet?.description || '',
               language: resolveVideoLanguage(item, targetLanguageCodes[0] || 'en'),
-            });
+              topicTimestamps: {},
+            };
+            byLanguage.push(videoItem);
 
             usedVideoIds.add(videoId);
             if (byLanguage.length >= 2) {
@@ -617,7 +867,540 @@ const LearningInterface: React.FC = () => {
     };
 
     fetchVideos();
-  }, [curriculum, modules, activeModule, selectedLanguageCodes, videosByModule, youtubeApiKey, youtubeBlockedReason]);
+  }, [curriculum, modules, activeModule, selectedLanguageCodes, selectedVideoDuration, videosByModule, youtubeApiKey, youtubeBlockedReason]);
+
+  const getVideoUrlWithTopicTimestamp = async (video: VideoItem, topic: string | null): Promise<string> => {
+    if (!topic || !currentModule) {
+      return video.url;
+    }
+
+    // Check if already cached
+    if (video.topicTimestamps?.[topic]) {
+      const result = video.topicTimestamps[topic];
+      if (result.startSeconds > 0) {
+        return `${video.url}&t=${result.startSeconds}s`;
+      }
+      return video.url;
+    }
+
+    // Fetch timestamp asynchronously (non-blocking)
+    setTopicTimestampLoading(true);
+    try {
+      const result = await findTopicTimestamp({
+        videoId: video.id,
+        topic,
+        moduleTitle: currentModule.title,
+        subtopics: currentModule.subtopics,
+        videoTitle: video.title,
+        videoDescription: video.description,
+      });
+
+      // Update video item with cached result
+      setVideosByModule((prev) => {
+        const updated = { ...prev };
+        const cacheKey = currentCacheKey;
+        const videos = updated[cacheKey] || [];
+
+        return {
+          ...updated,
+          [cacheKey]: videos.map((v) =>
+            v.id === video.id
+              ? {
+                  ...v,
+                  topicTimestamps: {
+                    ...(v.topicTimestamps || {}),
+                    [topic]: result,
+                  },
+                }
+              : v
+          ),
+        };
+      });
+
+      if (result.startSeconds > 0) {
+        return `${video.url}&t=${result.startSeconds}s`;
+      }
+
+      return video.url;
+    } catch (err) {
+      console.warn('Failed to get topic timestamp:', err);
+      return video.url;
+    } finally {
+      setTopicTimestampLoading(false);
+    }
+  };
+
+  // Compute currentCacheKey outside conditional to use in function above
+  const activeLanguageCodes = (selectedLanguageCodes.length ? selectedLanguageCodes : ['en']).slice(0, 2);
+  const currentModule = modules[activeModule];
+  const currentCacheKey = currentModule ? buildVideoCacheKey(currentModule.id, activeLanguageCodes, selectedVideoDuration) : '';
+  const currentVideos = currentModule ? videosByModule[currentCacheKey] || [] : [];
+  const codingContext = currentModule && curriculum
+    ? detectCodingContext(curriculum.title, currentModule.title, currentModule.subtopics || [])
+    : { isCodingTopic: false, lockedLanguage: null, languageCandidates: [] };
+  const showCodingPractice = currentModule && curriculum
+    ? shouldShowCodingPractice(curriculum.title, currentModule.title, currentModule.subtopics || [], activeModule)
+    : false;
+  const currentLanguageOptionList = getPracticeLanguageOptions();
+  const fallbackLanguage: SupportedProgrammingLanguage = codingContext.lockedLanguage || 'python';
+  const currentPracticeLanguage: SupportedProgrammingLanguage = currentModule
+    ? codingContext.lockedLanguage || practiceLanguageByModule[currentModule.id] || fallbackLanguage
+    : fallbackLanguage;
+  const codingQuestionSet = currentModule && curriculum && showCodingPractice
+    ? buildCodingQuestionSetForModule(
+        curriculum.title,
+        currentModule.title,
+        currentModule.subtopics || [],
+        currentPracticeLanguage
+      )
+    : null;
+  const currentQuestionIndex = currentModule ? (activeQuestionIndexByModule[currentModule.id] || 0) : 0;
+  const currentQuestion = codingQuestionSet
+    ? codingQuestionSet.questions[Math.min(currentQuestionIndex, Math.max(0, codingQuestionSet.questions.length - 1))]
+    : null;
+  const currentQuestionKey = currentModule && currentQuestion ? `${currentModule.id}::${currentQuestion.id}` : null;
+  const currentCode = currentQuestionKey ? (codeByQuestion[currentQuestionKey] || '') : '';
+  const currentStdin = currentQuestionKey ? (stdinByQuestion[currentQuestionKey] || '') : '';
+  const currentRunResult = currentQuestionKey ? runResultsByQuestion[currentQuestionKey] : undefined;
+  const currentTestSuiteResult = currentQuestionKey ? testSuiteResultsByQuestion[currentQuestionKey] : undefined;
+  const currentAttemptHistory = currentModule ? (attemptHistoryByModule[currentModule.id] || []) : [];
+  const isCurrentRunLoading = currentQuestionKey ? !!runLoadingByQuestion[currentQuestionKey] : false;
+  const publicTestCases: CodingTestCase[] = currentQuestion
+    ? currentQuestion.testCases.filter((testCase) => testCase.visibility === 'public')
+    : [];
+  const attemptHistoryStorageKey = savedPathId
+    ? `modulearn:coding_attempts:${savedPathId}`
+    : curriculum
+      ? `modulearn:coding_attempts:${curriculum.title}`
+      : null;
+
+  useEffect(() => {
+    if (!attemptHistoryStorageKey) {
+      return;
+    }
+
+    try {
+      const raw = localStorage.getItem(attemptHistoryStorageKey);
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as Record<string, AttemptHistoryEntry[]>;
+      if (parsed && typeof parsed === 'object') {
+        setAttemptHistoryByModule(parsed);
+      }
+    } catch (err) {
+      console.warn('Failed to load coding attempt history:', err);
+    }
+  }, [attemptHistoryStorageKey]);
+
+  useEffect(() => {
+    if (!attemptHistoryStorageKey) {
+      return;
+    }
+
+    try {
+      localStorage.setItem(attemptHistoryStorageKey, JSON.stringify(attemptHistoryByModule));
+    } catch (err) {
+      console.warn('Failed to persist coding attempt history:', err);
+    }
+  }, [attemptHistoryStorageKey, attemptHistoryByModule]);
+
+  useEffect(() => {
+    const loadAttemptsFromDb = async () => {
+      if (!savedPathId || !currentModule || !showCodingPractice) {
+        return;
+      }
+
+      if (attemptsLoadedFromDb[currentModule.id]) {
+        return;
+      }
+
+      try {
+        const rows = await db.listCodingAttempts(savedPathId, currentModule.id, 12);
+        const mapped: AttemptHistoryEntry[] = rows.map((row) => ({
+          attemptedAt: row.createdAt,
+          language: (row.language as SupportedProgrammingLanguage) || 'python',
+          passed: row.passedCount,
+          total: row.totalCount,
+          status: row.status,
+          questionTitle: typeof row.metadata?.questionTitle === 'string' ? row.metadata.questionTitle : undefined,
+        }));
+
+        setAttemptHistoryByModule((prev) => {
+          const existing = prev[currentModule.id] || [];
+          if (!existing.length) {
+            return {
+              ...prev,
+              [currentModule.id]: mapped,
+            };
+          }
+
+          // Keep existing local entries and append unique db entries.
+          const seen = new Set(existing.map((entry) => `${entry.attemptedAt}-${entry.status}-${entry.passed}-${entry.total}`));
+          const merged = [...existing];
+          mapped.forEach((entry) => {
+            const key = `${entry.attemptedAt}-${entry.status}-${entry.passed}-${entry.total}`;
+            if (!seen.has(key)) {
+              merged.push(entry);
+              seen.add(key);
+            }
+          });
+          return {
+            ...prev,
+            [currentModule.id]: merged.slice(0, 12),
+          };
+        });
+      } catch (err) {
+        console.warn('Failed to load coding attempts from Supabase, using local history only:', err);
+      } finally {
+        setAttemptsLoadedFromDb((prev) => ({
+          ...prev,
+          [currentModule.id]: true,
+        }));
+      }
+    };
+
+    loadAttemptsFromDb();
+  }, [savedPathId, currentModule, showCodingPractice, attemptsLoadedFromDb]);
+
+  const pushAttemptHistory = (
+    moduleId: string,
+    entry: AttemptHistoryEntry,
+  ) => {
+    setAttemptHistoryByModule((prev) => {
+      const existing = prev[moduleId] || [];
+      return {
+        ...prev,
+        [moduleId]: [entry, ...existing].slice(0, 12),
+      };
+    });
+
+    if (savedPathId) {
+      db.saveCodingAttempt({
+        learningPathId: savedPathId,
+        moduleId,
+        language: entry.language,
+        passedCount: entry.passed,
+        totalCount: entry.total,
+        status: entry.status,
+        metadata: {
+          attemptedAt: entry.attemptedAt,
+          questionTitle: entry.questionTitle || '',
+        },
+      }).catch((err) => {
+        console.warn('Failed to persist coding attempt to Supabase:', err);
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!currentModule || !showCodingPractice) {
+      return;
+    }
+
+    if (codingContext.lockedLanguage) {
+      setPracticeLanguageByModule((prev) => {
+        if (prev[currentModule.id] === codingContext.lockedLanguage) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          [currentModule.id]: codingContext.lockedLanguage,
+        };
+      });
+    }
+  }, [currentModule, showCodingPractice, codingContext.lockedLanguage]);
+
+  useEffect(() => {
+    if (!currentModule || !showCodingPractice || !codingQuestionSet || !currentQuestion) {
+      return;
+    }
+
+    const questionKey = `${currentModule.id}::${currentQuestion.id}`;
+    setCodeByQuestion((prev) => {
+      if (prev[questionKey]?.trim()) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [questionKey]: codingQuestionSet.starterCode || getStarterTemplate(currentPracticeLanguage),
+      };
+    });
+  }, [currentModule, showCodingPractice, codingQuestionSet, currentQuestion, currentPracticeLanguage]);
+
+  const handlePracticeLanguageChange = (nextLanguage: SupportedProgrammingLanguage) => {
+    if (!currentModule || codingContext.lockedLanguage) {
+      return;
+    }
+
+    setPracticeLanguageByModule((prev) => ({
+      ...prev,
+      [currentModule.id]: nextLanguage,
+    }));
+
+    if (!currentQuestion) {
+      return;
+    }
+
+    const questionKey = `${currentModule.id}::${currentQuestion.id}`;
+    setCodeByQuestion((prev) => {
+      if (prev[questionKey]?.trim()) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [questionKey]: getStarterTemplate(nextLanguage),
+      };
+    });
+  };
+
+  const handleNextQuestion = () => {
+    if (!currentModule || !codingQuestionSet) {
+      return;
+    }
+
+    setActiveQuestionIndexByModule((prev) => {
+      const currentIndex = prev[currentModule.id] || 0;
+      const maxIndex = Math.max(0, codingQuestionSet.questions.length - 1);
+      return {
+        ...prev,
+        [currentModule.id]: Math.min(currentIndex + 1, maxIndex),
+      };
+    });
+  };
+
+  const handlePreviousQuestion = () => {
+    if (!currentModule) {
+      return;
+    }
+
+    setActiveQuestionIndexByModule((prev) => {
+      const currentIndex = prev[currentModule.id] || 0;
+      return {
+        ...prev,
+        [currentModule.id]: Math.max(0, currentIndex - 1),
+      };
+    });
+  };
+
+  const handleRunCode = async () => {
+    if (!currentModule || !showCodingPractice || !currentQuestion || !currentQuestionKey) {
+      return;
+    }
+
+    const sourceCode = codeByQuestion[currentQuestionKey] || '';
+    if (!sourceCode.trim()) {
+      setRunResultsByQuestion((prev) => ({
+        ...prev,
+        [currentQuestionKey]: {
+          output: 'Please write some code before running.',
+          status: 'Validation Error',
+          executionTime: null,
+          memoryKb: null,
+          error: 'Empty source code',
+        },
+      }));
+      return;
+    }
+
+    const language = codingContext.lockedLanguage || practiceLanguageByModule[currentModule.id] || 'python';
+
+    setRunLoadingByQuestion((prev) => ({
+      ...prev,
+      [currentQuestionKey]: true,
+    }));
+
+    try {
+      const result: RunCodeResult = await runCodeWithJudge0(
+        sourceCode,
+        language,
+        stdinByQuestion[currentQuestionKey] || ''
+      );
+
+      setRunResultsByQuestion((prev) => ({
+        ...prev,
+        [currentQuestionKey]: {
+          output: result.output,
+          status: result.status,
+          executionTime: result.executionTime,
+          memoryKb: result.memoryKb,
+        },
+      }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to run code.';
+      setRunResultsByQuestion((prev) => ({
+        ...prev,
+        [currentQuestionKey]: {
+          output: message,
+          status: 'Execution Error',
+          executionTime: null,
+          memoryKb: null,
+          error: message,
+        },
+      }));
+    } finally {
+      setRunLoadingByQuestion((prev) => ({
+        ...prev,
+        [currentQuestionKey]: false,
+      }));
+    }
+  };
+
+  const handleRunTests = async () => {
+    if (!currentModule || !showCodingPractice || !currentQuestion || !currentQuestionKey) {
+      return;
+    }
+
+    const sourceCode = codeByQuestion[currentQuestionKey] || '';
+    if (!sourceCode.trim()) {
+      setRunResultsByQuestion((prev) => ({
+        ...prev,
+        [currentQuestionKey]: {
+          output: 'Please write some code before running test cases.',
+          status: 'Validation Error',
+          executionTime: null,
+          memoryKb: null,
+          error: 'Empty source code',
+        },
+      }));
+      return;
+    }
+
+    const language = codingContext.lockedLanguage || practiceLanguageByModule[currentModule.id] || 'python';
+
+    setRunLoadingByQuestion((prev) => ({
+      ...prev,
+      [currentQuestionKey]: true,
+    }));
+
+    try {
+      const suiteResult = await runCodeAgainstTestCases(sourceCode, language, currentQuestion.testCases);
+      setTestSuiteResultsByQuestion((prev) => ({
+        ...prev,
+        [currentQuestionKey]: suiteResult,
+      }));
+
+      const overallStatus = suiteResult.failed === 0 ? 'All tests passed' : `${suiteResult.failed} test(s) failed`;
+      setRunResultsByQuestion((prev) => ({
+        ...prev,
+        [currentQuestionKey]: {
+          output: `${suiteResult.passed}/${suiteResult.total} test cases passed.`,
+          status: overallStatus,
+          executionTime: null,
+          memoryKb: null,
+        },
+      }));
+
+      pushAttemptHistory(currentModule.id, {
+        attemptedAt: new Date().toISOString(),
+        language,
+        passed: suiteResult.passed,
+        total: suiteResult.total,
+        status: overallStatus,
+        questionTitle: currentQuestion.title,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to run test cases.';
+      setRunResultsByQuestion((prev) => ({
+        ...prev,
+        [currentQuestionKey]: {
+          output: message,
+          status: 'Execution Error',
+          executionTime: null,
+          memoryKb: null,
+          error: message,
+        },
+      }));
+    } finally {
+      setRunLoadingByQuestion((prev) => ({
+        ...prev,
+        [currentQuestionKey]: false,
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedTopic || !currentModule || currentVideos.length === 0) {
+      return;
+    }
+
+    const videosToResolve = currentVideos.filter((video) => !video.topicTimestamps?.[selectedTopic]);
+    if (videosToResolve.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const preloadTopicTimestamps = async () => {
+      setTopicTimestampLoading(true);
+      try {
+        const resolved = await Promise.all(
+          videosToResolve.map(async (video) => {
+            try {
+              const result = await findTopicTimestamp({
+                videoId: video.id,
+                topic: selectedTopic,
+                moduleTitle: currentModule.title,
+                subtopics: currentModule.subtopics,
+                videoTitle: video.title,
+                videoDescription: video.description,
+              });
+              return { videoId: video.id, result };
+            } catch (err) {
+              console.warn('Failed to preload topic timestamp:', err);
+              return {
+                videoId: video.id,
+                result: {
+                  startSeconds: 0,
+                  confidence: 'low' as const,
+                  method: 'fallback' as const,
+                },
+              };
+            }
+          })
+        );
+
+        if (isCancelled) {
+          return;
+        }
+
+        const resultMap = new Map(resolved.map((entry) => [entry.videoId, entry.result]));
+        setVideosByModule((prev) => {
+          const videos = prev[currentCacheKey] || [];
+          return {
+            ...prev,
+            [currentCacheKey]: videos.map((video) => {
+              const matchedResult = resultMap.get(video.id);
+              if (!matchedResult) {
+                return video;
+              }
+
+              return {
+                ...video,
+                topicTimestamps: {
+                  ...(video.topicTimestamps || {}),
+                  [selectedTopic]: matchedResult,
+                },
+              };
+            }),
+          };
+        });
+      } finally {
+        if (!isCancelled) {
+          setTopicTimestampLoading(false);
+        }
+      }
+    };
+
+    preloadTopicTimestamps();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedTopic, currentCacheKey, currentModule, currentVideos]);
 
   if (error) {
     return (
@@ -627,7 +1410,7 @@ const LearningInterface: React.FC = () => {
           <h2 className="text-xl font-bold dark:text-white mb-2">Error Loading Content</h2>
           <p className="text-zinc-600 dark:text-zinc-400 mb-6">{error}</p>
           <button 
-            onClick={() => navigate('/app/structure')}
+            onClick={() => navigate('/app')}
             className="bg-peach text-white px-6 py-3 rounded-xl font-bold hover:opacity-90"
           >
             Go Back
@@ -645,14 +1428,9 @@ const LearningInterface: React.FC = () => {
     );
   }
 
-  const currentModule = modules[activeModule];
   const moduleProgress = ((activeModule + 1) / modules.length * 100).toFixed(0);
   const isCompleted = currentModule ? !!completedModules[currentModule.id] : false;
-  const baseLanguages = selectedLanguageCodes.length ? selectedLanguageCodes : ['en'];
-  const activeLanguageCodes = baseLanguages.length === 1 ? [baseLanguages[0], baseLanguages[0]] : baseLanguages.slice(0, 2);
   const languageBadgeCodes: string[] = Array.from(new Set<string>(activeLanguageCodes));
-  const currentCacheKey = currentModule ? buildVideoCacheKey(currentModule.id, activeLanguageCodes) : '';
-  const currentVideos = currentModule ? videosByModule[currentCacheKey] || [] : [];
 
   return (
     <div className="flex h-screen w-screen bg-white dark:bg-zinc-950 overflow-hidden">
@@ -660,16 +1438,16 @@ const LearningInterface: React.FC = () => {
       <aside 
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
-        className={`bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 flex flex-col transition-all duration-300 overflow-hidden ${
+        className={`bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 flex flex-col transition-[width] duration-500 ease-in-out overflow-hidden ${
           sidebarExpanded ? 'w-80' : 'w-24'
         }`}
       >
         {/* Header */}
         <div className={`border-b border-zinc-100 dark:border-zinc-800 flex items-center ${sidebarExpanded ? 'justify-between px-6 py-6' : 'justify-center px-2 py-6'}`}>
           <button 
-            onClick={() => navigate('/app/structure')} 
+            onClick={() => navigate('/app/library')} 
             className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors flex-shrink-0"
-            title="Back to structure"
+            title="Back to library"
           >
             <ArrowLeft size={20} />
           </button>
@@ -772,13 +1550,288 @@ const LearningInterface: React.FC = () => {
                 </div>
               )}
 
+              {showCodingPractice && currentModule && codingQuestionSet && currentQuestion && (
+                <div className="bg-white dark:bg-zinc-900 p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800 mt-8">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-6">
+                    <div>
+                      <h3 className="text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                        <Code2 size={20} className="text-peach" />
+                        Coding Practice
+                      </h3>
+                      <p className="text-sm text-zinc-500 mt-2">{codingQuestionSet.title}</p>
+                      <p className="text-xs text-zinc-400 mt-1">Question {currentQuestionIndex + 1} of {codingQuestionSet.questions.length}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {codingContext.lockedLanguage ? (
+                        <span className="px-3 py-1.5 rounded-full text-[11px] font-bold bg-peach/10 text-peach uppercase tracking-widest">
+                          Locked: {codingContext.lockedLanguage}
+                        </span>
+                      ) : (
+                        <select
+                          value={currentPracticeLanguage}
+                          onChange={(event) => handlePracticeLanguageChange(event.target.value as SupportedProgrammingLanguage)}
+                          className="px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-700 dark:text-zinc-200"
+                        >
+                          {currentLanguageOptionList.map((lang) => (
+                            <option key={lang.value} value={lang.value}>
+                              {lang.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mb-4 flex items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950/30 px-4 py-3">
+                    <div>
+                      <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">{currentQuestion.title}</p>
+                      <p className="text-[10px] text-zinc-500 mt-1">One question per module topic. Use next to continue.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handlePreviousQuestion}
+                        disabled={currentQuestionIndex === 0}
+                        className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300 disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={handleNextQuestion}
+                        disabled={currentQuestionIndex >= codingQuestionSet.questions.length - 1}
+                        className="px-3 py-1.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-semibold disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mb-5">
+                    <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed mb-3">{currentQuestion.prompt}</p>
+                    <ul className="list-disc pl-5 space-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      {currentQuestion.constraints.map((constraint, index) => (
+                        <li key={index}>{constraint}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="mb-5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950/30 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-3">Public Test Cases</p>
+                    <div className="space-y-3">
+                      {publicTestCases.map((testCase) => (
+                        <div key={testCase.id} className="rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-3">
+                          <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 mb-2">{testCase.label}</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1">Input</p>
+                              <pre className="text-xs whitespace-pre-wrap break-words text-zinc-600 dark:text-zinc-300">{testCase.input}</pre>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1">Expected Output</p>
+                              <pre className="text-xs whitespace-pre-wrap break-words text-zinc-600 dark:text-zinc-300">{testCase.expectedOutput}</pre>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-950 mb-4">
+                    <Editor
+                      height="360px"
+                      language={currentLanguageOptionList.find((lang) => lang.value === currentPracticeLanguage)?.monacoLanguage || 'python'}
+                      value={currentCode || codingQuestionSet.starterCode}
+                      theme="vs-dark"
+                      onChange={(value) => {
+                        if (!currentQuestionKey) {
+                          return;
+                        }
+
+                        setCodeByQuestion((prev) => ({
+                          ...prev,
+                          [currentQuestionKey]: value || '',
+                        }));
+                      }}
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 14,
+                        lineNumbers: 'on',
+                        automaticLayout: true,
+                      }}
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">Custom Input (stdin)</label>
+                    <textarea
+                      value={currentStdin}
+                      onChange={(event) => {
+                        if (!currentQuestionKey) {
+                          return;
+                        }
+
+                        setStdinByQuestion((prev) => ({
+                          ...prev,
+                          [currentQuestionKey]: event.target.value,
+                        }));
+                      }}
+                      placeholder="Optional: provide input for your program"
+                      className="w-full min-h-20 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200"
+                    />
+                  </div>
+
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleRunCode}
+                        disabled={isCurrentRunLoading}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-peach text-white font-bold text-sm hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {isCurrentRunLoading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                        {isCurrentRunLoading ? 'Running...' : 'Run Code'}
+                      </button>
+                      <button
+                        onClick={handleRunTests}
+                        disabled={isCurrentRunLoading}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold text-sm hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {isCurrentRunLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                        {isCurrentRunLoading ? 'Evaluating...' : 'Run Test Cases'}
+                      </button>
+                    </div>
+                    <span className="text-xs text-zinc-400">Execution powered by Judge0</span>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950/50 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Output</p>
+                      {currentRunResult && (
+                        <div className="text-[10px] text-zinc-500 font-semibold">
+                          <span className="mr-3">Status: {currentRunResult.status}</span>
+                          {currentRunResult.executionTime && <span className="mr-3">Time: {currentRunResult.executionTime}s</span>}
+                          {typeof currentRunResult.memoryKb === 'number' && <span>Memory: {currentRunResult.memoryKb} KB</span>}
+                        </div>
+                      )}
+                    </div>
+                    <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-zinc-700 dark:text-zinc-200 min-h-16">
+                      {currentRunResult?.output || 'Run your code to see output here.'}
+                    </pre>
+                  </div>
+
+                  {currentTestSuiteResult && (
+                    <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Test Summary</p>
+                        <span className={`text-xs font-bold ${currentTestSuiteResult.failed === 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          {currentTestSuiteResult.passed}/{currentTestSuiteResult.total} Passed
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {currentTestSuiteResult.results.map((result) => (
+                          <div key={result.testCaseId} className="flex items-center justify-between text-xs border border-zinc-100 dark:border-zinc-800 rounded-lg px-3 py-2">
+                            <div>
+                              <p className="font-semibold text-zinc-700 dark:text-zinc-200">
+                                {result.label} {result.visibility === 'hidden' ? '(Hidden)' : '(Public)'}
+                              </p>
+                              <p className="text-zinc-500 mt-0.5">{result.status}</p>
+                            </div>
+                            <span className={`font-bold ${result.passed ? 'text-emerald-500' : 'text-red-500'}`}>
+                              {result.passed ? 'PASS' : 'FAIL'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950/40 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-3">Attempt History</p>
+                    {currentAttemptHistory.length === 0 ? (
+                      <p className="text-xs text-zinc-500">No attempts yet. Run test cases to track your progress.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {currentAttemptHistory.map((attempt, index) => (
+                          <div key={`${attempt.attemptedAt}-${index}`} className="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-xs">
+                            <div>
+                              {attempt.questionTitle && (
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1">{attempt.questionTitle}</p>
+                              )}
+                              <p className="font-semibold text-zinc-700 dark:text-zinc-200">{attempt.passed}/{attempt.total} tests passed ({attempt.language})</p>
+                              <p className="text-zinc-500 mt-0.5">{new Date(attempt.attemptedAt).toLocaleString()}</p>
+                            </div>
+                            <span className={`font-bold ${attempt.passed === attempt.total ? 'text-emerald-500' : 'text-amber-500'}`}>
+                              {attempt.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Recommended Videos */}
               <div className="bg-white dark:bg-zinc-900 p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Recommended Videos</h3>
-                  <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-                    Langs: {languageBadgeCodes.map((code) => getDisplayLanguage(code)).join(', ')}
-                  </span>
+                  <div className="text-right">
+                    <span className="block text-xs font-bold uppercase tracking-widest text-zinc-400">
+                      Langs: {languageBadgeCodes.map((code) => getDisplayLanguage(code)).join(', ')}
+                    </span>
+                    <span className="block text-[10px] font-semibold text-zinc-400 mt-1">
+                      Length: {selectedVideoDuration === 'any' ? 'Any' : selectedVideoDuration}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mb-6 rounded-xl border border-zinc-100 dark:border-zinc-800 p-4 bg-zinc-50/70 dark:bg-zinc-800/30">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">Video Length</p>
+                      <div className="flex flex-wrap gap-2">
+                        {([
+                          { value: 'any', label: 'Any' },
+                          { value: 'short', label: 'Short (<4m)' },
+                          { value: 'medium', label: 'Medium (4-20m)' },
+                          { value: 'long', label: 'Long (>20m)' },
+                        ] as { value: YouTubeDuration; label: string }[]).map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => setSelectedVideoDuration(option.value)}
+                            className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-colors ${
+                              selectedVideoDuration === option.value
+                                ? 'bg-peach text-white'
+                                : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-peach/60'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">Languages (up to 2)</p>
+                      <div className="flex flex-wrap gap-2">
+                        {LANGUAGE_OPTIONS.map((option) => {
+                          const isSelected = selectedLanguageCodes.includes(option.code);
+
+                          return (
+                            <button
+                              key={option.code}
+                              onClick={() => toggleLanguageSelection(option.code)}
+                              className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-colors ${
+                                isSelected
+                                  ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900'
+                                  : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-zinc-400'
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {videosLoading ? (
@@ -791,29 +1844,51 @@ const LearningInterface: React.FC = () => {
                 ) : currentVideos.length === 0 ? (
                   <p className="text-sm text-zinc-500">No videos found yet. Try another module.</p>
                 ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {currentVideos.map(video => (
-                      <a
-                        key={video.id}
-                        href={video.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="group flex flex-col rounded-xl overflow-hidden border border-zinc-100 dark:border-zinc-800 hover:border-peach transition-colors"
-                      >
-                        <div className="aspect-video bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                          {video.thumbnail && (
-                            <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform" />
-                          )}
-                        </div>
-                        <div className="p-4">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-peach mb-2">
-                            {getDisplayLanguage(video.language)}
-                          </p>
-                          <h4 className="text-sm font-bold text-zinc-900 dark:text-white line-clamp-2">{video.title}</h4>
-                          <p className="text-xs text-zinc-500 mt-2">{video.channelTitle}</p>
-                        </div>
-                      </a>
-                    ))}
+                  <div className="grid gap-4 sm:grid-cols-2 relative">
+                    {topicTimestampLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-zinc-900/50 rounded-lg pointer-events-none z-10">
+                        <Loader2 className="animate-spin text-peach" size={20} />
+                      </div>
+                    )}
+                    {currentVideos.map(video => {
+                      const topicResult = selectedTopic && video.topicTimestamps?.[selectedTopic];
+                      const timestampDisplay = topicResult
+                        ? topicResult.startSeconds > 0
+                          ? `Starts at ${formatSeconds(topicResult.startSeconds)}`
+                          : 'Start from beginning'
+                        : selectedTopic
+                          ? 'Finding best start point...'
+                          : null;
+
+                      return (
+                        <button
+                          key={video.id}
+                          onClick={async () => {
+                            const finalUrl = await getVideoUrlWithTopicTimestamp(video, selectedTopic);
+                            window.open(finalUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="group flex flex-col rounded-xl overflow-hidden border border-zinc-100 dark:border-zinc-800 hover:border-peach transition-colors cursor-pointer"
+                        >
+                          <div className="aspect-video bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                            {video.thumbnail && (
+                              <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform" />
+                            )}
+                          </div>
+                          <div className="p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-peach mb-2">
+                              {getDisplayLanguage(video.language)}
+                            </p>
+                            <h4 className="text-sm font-bold text-zinc-900 dark:text-white line-clamp-2">{video.title}</h4>
+                            <p className="text-xs text-zinc-500 mt-2">{video.channelTitle}</p>
+                            {timestampDisplay && (
+                              <p className="text-xs text-peach font-semibold mt-2.5 flex items-center gap-1">
+                                <span>⏱</span> {timestampDisplay}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>

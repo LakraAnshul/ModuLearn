@@ -1,4 +1,4 @@
-import { GeneratedCurriculum, groqService } from './groqService.ts';
+import { GeneratedCurriculum, LearningPreferences, groqService } from './groqService.ts';
 
 export interface UrlPipelineResult {
   curriculum: GeneratedCurriculum;
@@ -15,6 +15,7 @@ export interface UrlPipelineResult {
 
 interface ProcessUrlOptions {
   educationLevel: 'school' | 'college' | 'professional';
+  preferences: LearningPreferences;
   onProgress?: (message: string) => void;
 }
 
@@ -223,6 +224,7 @@ Constraints:
 - Use practical subtopics that can be learned progressively.
 - Avoid generic filler modules not connected to the source.`,
       options.educationLevel,
+  options.preferences,
     );
 
     return {

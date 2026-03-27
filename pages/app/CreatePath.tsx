@@ -3,9 +3,45 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Type, Link as LinkIcon, Sparkles, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 import { db, UserProfile } from '../../lib/database.ts';
-import { groqService, GeneratedCurriculum } from '../../backend/groqService.ts';
+import { groqService, GeneratedCurriculum, LearningDepth, LearningPreferences, TopicFamiliarity } from '../../backend/groqService.ts';
 import { pdfLearningPipeline } from '../../backend/pdfLearningPipeline.ts';
 import { urlLearningPipeline } from '../../backend/urlLearningPipeline.ts';
+
+const DEPTH_OPTIONS: { value: LearningDepth; label: string; description: string }[] = [
+  {
+    value: 'quick_overview',
+    label: 'Quick Overview',
+    description: 'Learn the essentials in minutes',
+  },
+  {
+    value: 'structured_learning',
+    label: 'Structured Learning',
+    description: 'Build solid understanding step-by-step',
+  },
+  {
+    value: 'deep_mastery',
+    label: 'Deep Mastery',
+    description: 'In-depth, expert-level knowledge',
+  },
+];
+
+const FAMILIARITY_OPTIONS: { value: TopicFamiliarity; label: string; description: string }[] = [
+  {
+    value: 'new_to_topic',
+    label: 'New to this topic',
+    description: 'Start from foundations and build confidence',
+  },
+  {
+    value: 'some_experience',
+    label: 'Some experience',
+    description: 'Brief recap, then move into practical depth',
+  },
+  {
+    value: 'already_comfortable',
+    label: 'Already comfortable',
+    description: 'Skip basics and focus on advanced concepts',
+  },
+];
 
 const CreatePath: React.FC = () => {
   const [method, setMethod] = useState<'upload' | 'text' | 'link'>('text');
@@ -18,6 +54,8 @@ const CreatePath: React.FC = () => {
   const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkStatus, setLinkStatus] = useState('');
+  const [learningDepth, setLearningDepth] = useState<LearningDepth>('structured_learning');
+  const [topicFamiliarity, setTopicFamiliarity] = useState<TopicFamiliarity>('new_to_topic');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
 
@@ -93,6 +131,11 @@ const CreatePath: React.FC = () => {
     setLinkStatus('');
     setLoading(true);
 
+    const preferences: LearningPreferences = {
+      depth: learningDepth,
+      familiarity: topicFamiliarity,
+    };
+
     try {
       if (!profile) {
         setError('Unable to load your profile. Please refresh and try again.');
@@ -102,16 +145,21 @@ const CreatePath: React.FC = () => {
       const educationLevel = getEducationLevelForGroq();
       let curriculum: GeneratedCurriculum;
       let topicForRoute = content;
+      let sourceType: 'text' | 'upload' | 'link' = method;
+      let sourceInput = content;
 
       if (method === 'upload') {
         const file = selectedPdf as File;
         const result = await pdfLearningPipeline.processPdf(file, {
           educationLevel,
+          preferences,
           onProgress: (message) => setUploadStatus(message),
         });
 
         curriculum = result.curriculum;
         topicForRoute = file.name.replace(/\.pdf$/i, '');
+          sourceType = 'upload';
+          sourceInput = file.name;
 
         localStorage.setItem(
           'modulearn:lastPdfPipeline',
@@ -122,16 +170,20 @@ const CreatePath: React.FC = () => {
             totalChunks: result.intermediate.totalChunks,
             chunks: result.intermediate.chunks,
             sections: result.intermediate.sections,
+            preferences,
           })
         );
       } else if (method === 'link') {
         const result = await urlLearningPipeline.processUrl(linkUrl, {
           educationLevel,
+          preferences,
           onProgress: (message) => setLinkStatus(message),
         });
 
         curriculum = result.curriculum;
         topicForRoute = result.intermediate.title || linkUrl;
+        sourceType = 'link';
+        sourceInput = linkUrl;
 
         localStorage.setItem(
           'modulearn:lastUrlPipeline',
@@ -144,10 +196,13 @@ const CreatePath: React.FC = () => {
             description: result.intermediate.description,
             contentLength: result.intermediate.contentLength,
             preview: result.intermediate.preview,
+            preferences,
           })
         );
       } else {
-        curriculum = await groqService.generateCurriculum(content, educationLevel);
+        curriculum = await groqService.generateCurriculum(content, educationLevel, preferences);
+        sourceType = 'text';
+        sourceInput = content;
       }
 
       console.log('Generated curriculum:', curriculum);
@@ -157,7 +212,10 @@ const CreatePath: React.FC = () => {
         state: { 
           curriculum,
           topic: topicForRoute,
-          educationLevel: profile.educationLevel
+          educationLevel: profile.educationLevel,
+          sourceType,
+          sourceInput,
+          preferences,
         } 
       });
     } catch (err) {
@@ -326,6 +384,62 @@ const CreatePath: React.FC = () => {
             </div>
           </div>
         )}
+
+        <div className="mt-10 space-y-8">
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-4">How deeply do you want to learn?</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {DEPTH_OPTIONS.map((option) => {
+                const selected = learningDepth === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setLearningDepth(option.value)}
+                    className={`text-left p-4 rounded-2xl border transition-all ${selected
+                      ? 'border-peach bg-peach/10 shadow-sm'
+                      : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-500'
+                    }`}
+                  >
+                    <p className={`text-sm font-bold ${selected ? 'text-peach' : 'text-zinc-800 dark:text-zinc-100'}`}>
+                      {option.label}
+                    </p>
+                    <p className={`mt-1 text-xs ${selected ? 'text-peach/90' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                      {option.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-4">How familiar are you with this topic?</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {FAMILIARITY_OPTIONS.map((option) => {
+                const selected = topicFamiliarity === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setTopicFamiliarity(option.value)}
+                    className={`text-left p-4 rounded-2xl border transition-all ${selected
+                      ? 'border-peach bg-peach/10 shadow-sm'
+                      : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-500'
+                    }`}
+                  >
+                    <p className={`text-sm font-bold ${selected ? 'text-peach' : 'text-zinc-800 dark:text-zinc-100'}`}>
+                      {option.label}
+                    </p>
+                    <p className={`mt-1 text-xs ${selected ? 'text-peach/90' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                      {option.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
         {/* Error Display */}
         {error && (

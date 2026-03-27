@@ -1,5 +1,7 @@
 import { supabase, supabaseUrl } from './supabase.ts';
 import { GoogleGenAI, Type } from "@google/genai";
+import { CurriculumModule, GeneratedCurriculum, LearningPreferences } from '../backend/groqService.ts';
+import { normalizeLearningPreferences } from './durationEstimate.ts';
 
 export interface UserProfile {
   id: string;
@@ -16,6 +18,60 @@ export interface UserProfile {
   goals: string[];
   learningStyles: string[];
   onboarded: boolean;
+  createdAt: string;
+}
+
+export interface SaveGeneratedPathInput {
+  curriculum: GeneratedCurriculum;
+  modules: CurriculumModule[];
+  sourceType: 'text' | 'upload' | 'link';
+  sourceInput: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SavedLearningPathSummary {
+  id: string;
+  title: string;
+  description: string;
+  progress: number;
+  moduleCount: number;
+  topicCount: number;
+  totalMinutes: number;
+  totalEstimatedHours: number;
+  generationPreferences: LearningPreferences;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface SavedLearningPathDetail extends SavedLearningPathSummary {
+  educationLevel: string;
+  modules: CurriculumModule[];
+  sourceType: 'text' | 'upload' | 'link';
+  sourceInput: string;
+  completedModuleIds: string[];
+  currentModuleIndex: number;
+  metadata: Record<string, unknown>;
+}
+
+export interface SaveCodingAttemptInput {
+  learningPathId: string;
+  moduleId: string;
+  language: string;
+  passedCount: number;
+  totalCount: number;
+  status: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CodingAttemptRecord {
+  id: string;
+  learningPathId: string;
+  moduleId: string;
+  language: string;
+  passedCount: number;
+  totalCount: number;
+  status: string;
+  metadata: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -37,6 +93,32 @@ const isConfigured = () =>
   supabaseUrl && 
   !supabaseUrl.includes('your-project-ref') && 
   !supabaseUrl.includes('placeholder');
+
+const getCurrentUserId = async (): Promise<string> => {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) {
+    throw new Error('Not authenticated');
+  }
+  return user.id;
+};
+
+const toNumber = (value: unknown, fallback = 0): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const extractGenerationPreferences = (metadata: unknown): LearningPreferences => {
+  if (!metadata || typeof metadata !== 'object') {
+    return normalizeLearningPreferences();
+  }
+
+  const rawPrefs = (metadata as Record<string, unknown>).generationPreferences;
+  if (!rawPrefs || typeof rawPrefs !== 'object') {
+    return normalizeLearningPreferences();
+  }
+
+  return normalizeLearningPreferences(rawPrefs as Partial<LearningPreferences>);
+};
 
 export const db = {
   /**
@@ -137,6 +219,239 @@ export const db = {
       onboarded: data.onboarded,
       createdAt: data.updated_at
     };
+  },
+
+  /**
+   * Persists one generated learning path row with denormalized summary fields.
+   * This keeps writes to a single insert and makes dashboard fetches very fast.
+   */
+  async saveGeneratedLearningPath(input: SaveGeneratedPathInput): Promise<{ id: string }> {
+    if (!isConfigured()) {
+      throw new Error('Database not configured');
+    }
+
+    const userId = await getCurrentUserId();
+    const modules = Array.isArray(input.modules) ? input.modules : [];
+    const moduleCount = modules.length;
+    const topicCount = modules.reduce((sum, module) => sum + (module.subtopics?.length || 0), 0);
+    const totalMinutes = modules.reduce((sum, module) => sum + toNumber(module.estimatedMinutes, 0), 0);
+    const totalEstimatedHours = toNumber(input.curriculum.totalEstimatedHours, Math.ceil(totalMinutes / 60));
+
+    const payload = {
+      user_id: userId,
+      title: input.curriculum.title || input.sourceInput,
+      description: input.curriculum.description || '',
+      education_level: input.curriculum.educationLevel || 'school',
+      total_estimated_hours: totalEstimatedHours,
+      total_minutes: totalMinutes,
+      module_count: moduleCount,
+      topic_count: topicCount,
+      progress_percent: 0,
+      current_module_index: 0,
+      completed_module_ids: [] as string[],
+      modules,
+      source_type: input.sourceType,
+      source_input: input.sourceInput,
+      metadata: input.metadata || {},
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('learning_paths')
+      .insert(payload)
+      .select('id')
+      .single();
+
+    if (error || !data?.id) {
+      console.error('Failed to save generated path:', error);
+      throw new Error(error?.message || 'Failed to save generated learning path');
+    }
+
+    return { id: data.id };
+  },
+
+  async listUserLearningPaths(limit?: number): Promise<SavedLearningPathSummary[]> {
+    if (!isConfigured()) {
+      return [];
+    }
+
+    const userId = await getCurrentUserId();
+    let query = supabase
+      .from('learning_paths')
+      .select('id,title,description,progress_percent,module_count,topic_count,total_minutes,total_estimated_hours,metadata,created_at,updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    if (typeof limit === 'number' && limit > 0) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Failed to fetch learning paths:', error);
+      throw new Error(error.message || 'Failed to fetch learning paths');
+    }
+
+    return (data || []).map((row) => ({
+      id: row.id,
+      title: row.title || 'Untitled Path',
+      description: row.description || '',
+      progress: toNumber(row.progress_percent, 0),
+      moduleCount: toNumber(row.module_count, 0),
+      topicCount: toNumber(row.topic_count, 0),
+      totalMinutes: toNumber(row.total_minutes, 0),
+      totalEstimatedHours: toNumber(row.total_estimated_hours, 0),
+      generationPreferences: extractGenerationPreferences(row.metadata),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  },
+
+  async getLearningPathById(pathId: string): Promise<SavedLearningPathDetail | null> {
+    if (!isConfigured()) {
+      return null;
+    }
+
+    const userId = await getCurrentUserId();
+    const { data, error } = await supabase
+      .from('learning_paths')
+      .select('*')
+      .eq('id', pathId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !data) {
+      if (error) {
+        console.error('Failed to fetch learning path detail:', error);
+      }
+      return null;
+    }
+
+    return {
+      id: data.id,
+      title: data.title || 'Untitled Path',
+      description: data.description || '',
+      progress: toNumber(data.progress_percent, 0),
+      moduleCount: toNumber(data.module_count, 0),
+      topicCount: toNumber(data.topic_count, 0),
+      totalMinutes: toNumber(data.total_minutes, 0),
+      totalEstimatedHours: toNumber(data.total_estimated_hours, 0),
+      generationPreferences: extractGenerationPreferences(data.metadata),
+      educationLevel: data.education_level || 'school',
+      modules: Array.isArray(data.modules) ? data.modules : [],
+      sourceType: data.source_type || 'text',
+      sourceInput: data.source_input || '',
+      completedModuleIds: Array.isArray(data.completed_module_ids) ? data.completed_module_ids : [],
+      currentModuleIndex: toNumber(data.current_module_index, 0),
+      metadata: data.metadata && typeof data.metadata === 'object' ? data.metadata : {},
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+  },
+
+  async updateLearningPathProgress(pathId: string, updates: {
+    completedModuleIds: string[];
+    currentModuleIndex: number;
+    progressPercent: number;
+  }): Promise<void> {
+    if (!isConfigured()) {
+      return;
+    }
+
+    const userId = await getCurrentUserId();
+    const { error } = await supabase
+      .from('learning_paths')
+      .update({
+        completed_module_ids: updates.completedModuleIds,
+        current_module_index: Math.max(0, updates.currentModuleIndex),
+        progress_percent: Math.max(0, Math.min(100, updates.progressPercent)),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', pathId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Failed to update learning path progress:', error);
+      throw new Error(error.message || 'Failed to update learning path progress');
+    }
+  },
+
+  async touchLearningPath(pathId: string): Promise<void> {
+    if (!isConfigured()) {
+      return;
+    }
+
+    const userId = await getCurrentUserId();
+    const { error } = await supabase
+      .from('learning_paths')
+      .update({ last_opened_at: new Date().toISOString() })
+      .eq('id', pathId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Failed to touch learning path:', error);
+    }
+  },
+
+  async saveCodingAttempt(input: SaveCodingAttemptInput): Promise<void> {
+    if (!isConfigured()) {
+      return;
+    }
+
+    const userId = await getCurrentUserId();
+    const { error } = await supabase
+      .from('coding_attempts')
+      .insert({
+        user_id: userId,
+        learning_path_id: input.learningPathId,
+        module_id: input.moduleId,
+        language: input.language,
+        passed_count: Math.max(0, toNumber(input.passedCount, 0)),
+        total_count: Math.max(0, toNumber(input.totalCount, 0)),
+        status: input.status,
+        metadata: input.metadata || {},
+      });
+
+    if (error) {
+      console.error('Failed to save coding attempt:', error);
+      throw new Error(error.message || 'Failed to save coding attempt');
+    }
+  },
+
+  async listCodingAttempts(learningPathId: string, moduleId: string, limit = 20): Promise<CodingAttemptRecord[]> {
+    if (!isConfigured()) {
+      return [];
+    }
+
+    const userId = await getCurrentUserId();
+    const safeLimit = Math.max(1, Math.min(100, limit));
+
+    const { data, error } = await supabase
+      .from('coding_attempts')
+      .select('id,learning_path_id,module_id,language,passed_count,total_count,status,metadata,created_at')
+      .eq('user_id', userId)
+      .eq('learning_path_id', learningPathId)
+      .eq('module_id', moduleId)
+      .order('created_at', { ascending: false })
+      .limit(safeLimit);
+
+    if (error) {
+      console.error('Failed to list coding attempts:', error);
+      throw new Error(error.message || 'Failed to list coding attempts');
+    }
+
+    return (data || []).map((row) => ({
+      id: row.id,
+      learningPathId: row.learning_path_id,
+      moduleId: row.module_id,
+      language: row.language || 'python',
+      passedCount: toNumber(row.passed_count, 0),
+      totalCount: toNumber(row.total_count, 0),
+      status: row.status || 'Attempted',
+      metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
+      createdAt: row.created_at,
+    }));
   },
 
   /**

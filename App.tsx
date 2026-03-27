@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage.tsx';
 import SignupPage from './pages/SignupPage.tsx';
 import OnboardingPage from './pages/OnboardingPage.tsx';
 import Dashboard from './pages/app/Dashboard.tsx';
+import LibraryPage from './pages/app/LibraryPage.tsx';
 import CreatePath from './pages/app/CreatePath.tsx';
 import StructurePath from './pages/app/StructurePath.tsx';
 import LearningInterface from './pages/app/LearningInterface.tsx';
@@ -114,6 +115,7 @@ const App: React.FC = () => {
         {/* Protected App Routes (Wrapped in Sidebar Layout) */}
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<Dashboard />} />
+          <Route path="library" element={<LibraryPage />} />
           <Route path="create" element={<CreatePath />} />
           <Route path="structure" element={<StructurePath />} />
           <Route path="path/:id" element={<LearningInterface />} />

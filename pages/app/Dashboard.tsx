@@ -1,23 +1,49 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Clock, ChevronRight, Zap, Loader2 } from 'lucide-react';
-import { db, UserProfile } from '../../lib/database.ts';
+import { db, UserProfile, SavedLearningPathSummary } from '../../lib/database.ts';
+import { estimateLearningDuration } from '../../lib/durationEstimate.ts';
 
-const mockPaths = [
-  { id: '1', title: 'React Performance Patterns', progress: 65, modules: 12, lastActive: '2 hours ago' },
-  { id: '2', title: 'Modern UI Design Fundamentals', progress: 32, modules: 8, lastActive: 'Yesterday' },
-  { id: '3', title: 'System Architecture Basics', progress: 90, modules: 15, lastActive: '3 days ago' },
-];
+const timeAgo = (dateValue: string): string => {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return 'Recently';
+  }
+
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
+
+  const months = Math.floor(days / 30);
+  return `${months} month${months > 1 ? 's' : ''} ago`;
+};
 
 const Dashboard: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [paths, setPaths] = useState<SavedLearningPathSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadProfile() {
-      const data = await db.getProfile();
-      setProfile(data);
-      setLoading(false);
+      try {
+        const [profileData, learningPaths] = await Promise.all([
+          db.getProfile(),
+          db.listUserLearningPaths(8),
+        ]);
+        setProfile(profileData);
+        setPaths(learningPaths);
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
     }
     loadProfile();
   }, []);
@@ -32,6 +58,12 @@ const Dashboard: React.FC = () => {
   }
 
   const firstName = profile?.fullName?.split(' ')[0] || 'Learner';
+  const getPathDuration = (path: SavedLearningPathSummary) =>
+    estimateLearningDuration({
+      moduleCount: path.moduleCount,
+      totalMinutes: path.totalMinutes,
+      preferences: path.generationPreferences,
+    });
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -96,7 +128,23 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid gap-6">
-        {mockPaths.map((path) => (
+        {paths.length === 0 && (
+          <div className="bg-white dark:bg-zinc-900 p-8 rounded-[24px] border border-zinc-100 dark:border-zinc-800 text-center">
+            <h4 className="font-bold text-lg mb-2 dark:text-white">No learning paths yet</h4>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">Create your first AI-generated path to start tracking progress.</p>
+            <Link
+              to="/app/create"
+              className="inline-flex items-center gap-2 bg-peach text-white px-6 py-3 rounded-xl font-bold hover:bg-peach/90 transition-all"
+            >
+              <Zap size={16} /> Create Path
+            </Link>
+          </div>
+        )}
+
+        {paths.map((path) => {
+          const duration = getPathDuration(path);
+
+          return (
           <div 
             key={path.id} 
             className="group bg-white dark:bg-zinc-900 p-6 rounded-[24px] border border-zinc-100 dark:border-zinc-800 hover:border-peach/30 dark:hover:border-peach/30 transition-all hover:shadow-xl hover:shadow-zinc-200/40 dark:hover:shadow-none flex flex-col md:flex-row md:items-center justify-between gap-6"
@@ -108,9 +156,11 @@ const Dashboard: React.FC = () => {
               <div>
                 <h4 className="font-bold text-lg mb-1 dark:text-white">{path.title}</h4>
                 <div className="flex items-center gap-4 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
-                  <span className="flex items-center gap-1"><Clock size={12} /> {path.lastActive}</span>
+                  <span className="flex items-center gap-1"><Clock size={12} /> {timeAgo(path.updatedAt)}</span>
                   <span>•</span>
-                  <span>{path.modules} Modules</span>
+                  <span>{path.moduleCount} Modules</span>
+                  <span>•</span>
+                  <span>{duration.totalHours} Hrs</span>
                 </div>
               </div>
             </div>
@@ -119,12 +169,12 @@ const Dashboard: React.FC = () => {
               <div className="text-right w-full md:w-32">
                  <div className="flex items-center justify-between mb-2">
                    <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500">Progress</span>
-                   <span className="text-xs font-bold dark:text-zinc-300">{path.progress}%</span>
+                   <span className="text-xs font-bold dark:text-zinc-300">{Math.round(path.progress)}%</span>
                  </div>
                  <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-peach transition-all duration-1000" 
-                      style={{ width: `${path.progress}%` }} 
+                     style={{ width: `${Math.round(path.progress)}%` }} 
                     />
                  </div>
               </div>
@@ -136,7 +186,8 @@ const Dashboard: React.FC = () => {
               </Link>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
