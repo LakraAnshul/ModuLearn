@@ -1,12 +1,11 @@
 <div align="center">
 
-# 🎓 ModuLearn
+# ModuLearn
 
-### AI-Powered Learning Path Generator
+### AI-Powered Learning Path Builder
 
-*Transform any topic into a structured, personalized learning curriculum powered by AI*
+Transform a topic, PDF, or URL into a structured learning path personalized to your level and learning preferences.
 
-[![GitHub](https://img.shields.io/badge/GitHub-LakraAnshul%2FModuLearn-blue?logo=github)](https://github.com/LakraAnshul/ModuLearn)
 [![React](https://img.shields.io/badge/React-19.2-61dafb?logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6?logo=typescript)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-6.2-646cff?logo=vite)](https://vitejs.dev)
@@ -14,242 +13,221 @@
 
 </div>
 
----
+## What Is New
 
-## 🌟 About ModuLearn
+This project has evolved beyond simple topic-based generation. Current implementation includes:
 
-**ModuLearn** is an innovative educational platform that leverages AI to create intelligent, personalized learning paths. Users can input any topic and receive a structured, modular curriculum tailored to their education level (school, college, or professional).
+- Multi-source path creation: topic text, PDF upload, and URL extraction
+- Adaptive curriculum generation with learning depth and familiarity preferences
+- Google OAuth sign-in with Supabase + PKCE callback handling for hash-based routing
+- Interactive learning interface with AI explanations per subtopic
+- Topic-aware YouTube recommendations with timestamp jumping
+- Built-in coding practice and test execution using Judge0
+- Path structuring, AI module refinement, and mindmap export
+- Saved path library with progress persistence in Supabase
 
-Whether you're a student looking to learn a new skill, a professional seeking advanced knowledge, or an educator designing courses, ModuLearn adapts to your needs with:
+## Core Features
 
-- 🤖 **AI-Generated Curricula** using Groq's high-performance language models
-- 📊 **Progress Tracking** with detailed learning metrics
-- 🎯 **Personalized Learning Paths** based on education level
-- 🔄 **Dynamic Content** that adjusts to your pace
-- 💾 **Persistent Storage** with Supabase authentication
+### Curriculum generation
+- Generate complete learning curricula with modules and subtopics using Groq
+- Tune output with:
+  - Learning depth: quick overview, structured learning, deep mastery
+  - Topic familiarity: new, intermediate, advanced
+- Auto-adapt for school, college, or professional profiles
 
----
+### Source pipelines
+- Topic mode: prompt-driven generation
+- PDF mode: PDF parsing, chunking, summarization, section synthesis, then curriculum generation
+- URL mode: content extraction (direct/proxy strategies), normalization, curriculum generation
 
-## ✨ Key Features
+### Learning experience
+- Structured module view with expandable subtopics
+- AI explanations for selected subtopics
+- YouTube learning resources with topic timestamp support
+- Coding practice workspace with Monaco editor
+- Code run and test-case validation via Judge0
+- Attempt history tracking per module
 
-### 🚀 Core Features
-- **Intelligent Curriculum Generation** - AI creates custom learning paths in seconds
-- **Multi-Level Education Support** - Tailored content for school, college, and professional learners
-- **Modular Structure** - Break complex topics into manageable chapters and subtopics
-- **Time Estimation** - Know exactly how long each module will take
-- **User Authentication** - Secure login with Supabase
-- **Progress Dashboard** - Track your learning journey with visual analytics
+### Authoring and visualization
+- Refine module content with AI
+- Add/remove modules before saving
+- Generate and download a mindmap image from your path
 
-### 🔧 Technical Features
-- **Real-time API Integration** - Groq API for blazing-fast responses
-- **Responsive Design** - Works seamlessly on desktop, tablet, and mobile
-- **Type-Safe** - Full TypeScript support for reliability
-- **Modern UI** - Built with React and Tailwind CSS
-- **Fast Performance** - Vite for instant hot module replacement
+### Account and data
+- Email/password and Google sign-in
+- Onboarding-driven learner profile
+- Persisted learning paths, modules, progress, and metadata in Supabase
+- Library, dashboard, and settings screens
 
----
+## Tech Stack
 
-## 🛠️ Tech Stack
+- Frontend: React 19, TypeScript, Tailwind CSS, React Router
+- Build tool: Vite
+- AI: Groq API, Google GenAI (for selected flows)
+- Auth + DB: Supabase
+- Code execution: Judge0
+- Visualization: Recharts, jsMind, html2canvas
+- PDF processing: pdfjs-dist
 
-| Category | Technologies |
-|----------|--------------|
-| **Frontend** | React 19.2, TypeScript, Tailwind CSS |
-| **Build Tool** | Vite 6.2 |
-| **AI/ML** | Groq API (llama-3.3-70b-versatile), Google GenAI |
-| **Backend** | Supabase (PostgreSQL, Authentication) |
-| **Routing** | React Router v7 |
-| **Visualization** | Recharts |
-| **Icons** | Lucide React |
+## Project Structure
 
----
+```text
+modulearn/
+├── App.tsx
+├── index.tsx
+├── backend/
+│   ├── groqService.ts
+│   ├── pdfLearningPipeline.ts
+│   └── urlLearningPipeline.ts
+├── components/
+├── lib/
+│   ├── database.ts
+│   ├── supabase.ts
+│   ├── codingPractice.ts
+│   ├── judge0Service.ts
+│   └── topicTimestampService.ts
+├── pages/
+│   ├── LandingPage.tsx
+│   ├── LoginPage.tsx
+│   ├── SignupPage.tsx
+│   ├── OnboardingPage.tsx
+│   └── app/
+│       ├── Dashboard.tsx
+│       ├── CreatePath.tsx
+│       ├── StructurePath.tsx
+│       ├── LearningInterface.tsx
+│       ├── LibraryPage.tsx
+│       ├── ProgressPage.tsx
+│       └── SettingsPage.tsx
+└── package.json
+```
 
-## 🚀 Quick Start
+## Quick Start
 
-### Prerequisites
-- **Node.js** v16+ ([Download](https://nodejs.org))
-- **npm** or **yarn** package manager
-- **Git** for version control
+### 1) Prerequisites
 
-### Installation
+- Node.js 18+
+- npm
+
+### 2) Install
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/LakraAnshul/ModuLearn.git
 cd ModuLearn
-
-# 2. Install dependencies
 npm install
-
-# 3. Set up environment variables
-cp .env.example .env
-
-# 4. Configure your API keys in .env
-# Edit .env and add your credentials:
-# - VITE_GROQ_API_KEY (Get from https://console.groq.com)
-# - VITE_YOUTUBE_API_KEY (Optional, for video content)
-# - VITE_SUPABASE_URL (From your Supabase project)
-# - VITE_SUPABASE_ANON_KEY (From your Supabase project)
-
-# 5. Start development server
-npm run dev
 ```
 
-The app will be available at **http://localhost:5173**
+### 3) Configure environment
 
----
-
-## ⚙️ Configuration Guide
-
-### Get Your Groq API Key
-
-1. Visit [console.groq.com](https://console.groq.com)
-2. Sign up (free tier available) or log in
-3. Go to **API Keys** section
-4. Create a new API key
-5. Copy the key (starts with `gsk_`)
-6. Add to your `.env` file
-
-### Get Your Supabase Credentials
-
-1. Visit [supabase.co](https://supabase.co)
-2. Create a new project
-3. Go to **Settings > API**
-4. Copy `Project URL` and `Anon Key`
-5. Add to your `.env` file
-
-### Environment Variables Template
+Create `.env` in project root.
 
 ```env
-# Groq API Configuration
-VITE_GROQ_API_KEY=your_groq_api_key_here
+# Required for curriculum generation
+VITE_GROQ_API_KEY=your_groq_key
 
-# YouTube Data API (Optional)
+# Required for YouTube recommendations
 VITE_YOUTUBE_API_KEY=your_youtube_api_key
 
-# Supabase Configuration
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+# Optional Gemini usage in selected flows
+VITE_GEMINI_API_KEY=your_gemini_key
+# or
+VITE_GOOGLE_API_KEY=your_google_api_key
 
-# Google Gemini API (Optional)
-VITE_GOOGLE_GENAI_API_KEY=your_google_api_key
+# Optional Judge0 overrides (if not using default public CE endpoint)
+VITE_JUDGE0_API_URL=https://ce.judge0.com
+VITE_RAPIDAPI_KEY=your_rapidapi_key
+VITE_RAPIDAPI_HOST=judge0-ce.p.rapidapi.com
+
+# Supabase credentials currently used by the client initializer
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
----
+Notes:
+- The current Supabase initializer reads `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+- If those are missing, the code can fall back to hardcoded values in `lib/supabase.ts`.
 
-## 📦 Available Scripts
+### 4) Run
 
 ```bash
-# Start development server with hot reload
 npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build locally
-npm run preview
 ```
 
----
+App runs at `http://localhost:5173` by default.
 
-## 📂 Project Structure
+## Available Scripts
 
-```
-ModuLearn/
-├── src/
-│   ├── components/          # Reusable UI components
-│   │   ├── Navbar.tsx
-│   │   ├── Footer.tsx
-│   │   ├── Illustrations.tsx
-│   │   └── app/
-│   ├── pages/               # Page components
-│   │   ├── LandingPage.tsx
-│   │   ├── LoginPage.tsx
-│   │   ├── SignupPage.tsx
-│   │   ├── OnboardingPage.tsx
-│   │   └── app/
-│   │       ├── Dashboard.tsx
-│   │       ├── CreatePath.tsx
-│   │       ├── LearningInterface.tsx
-│   │       ├── ProgressPage.tsx
-│   │       └── SettingsPage.tsx
-│   ├── backend/
-│   │   └── groqService.ts   # Groq API integration
-│   ├── lib/
-│   │   ├── database.ts      # Database utilities
-│   │   └── supabase.ts      # Supabase client
-│   ├── App.tsx              # Root component
-│   └── index.tsx            # Entry point
-├── .env.example             # Environment variables template
-├── vite.config.ts           # Vite configuration
-├── tsconfig.json            # TypeScript configuration
-└── package.json             # Project dependencies
+```bash
+npm run dev      # Start dev server
+npm run build    # Production build
+npm run preview  # Preview production build
 ```
 
----
+## Supabase Setup Checklist
 
-## 🎯 How It Works
+### Auth URL configuration
 
-1. **User Input** - Enter any topic you want to learn
-2. **AI Processing** - Groq API analyzes the topic and generates a curriculum
-3. **Structured Output** - Receive a well-organized learning path with:
-   - Multiple chapters/modules
-   - Subtopics for each chapter
-   - Estimated time per module
-   - Difficulty progression
-4. **Start Learning** - Begin your personalized learning journey
-5. **Track Progress** - Monitor your advancement with built-in analytics
+If Google OAuth redirects to localhost in production, verify these in Supabase Auth URL settings:
 
----
+- Site URL: your production URL (for example `https://modulearn-9pq2.onrender.com`)
+- Redirect URLs should include:
+  - production origin
+  - production origin with trailing slash
+  - localhost for local testing
 
-## 🔐 Security
+### Coding attempts table
 
-- ✅ **API Keys Protected** - Never commit `.env` files to git
-- ✅ **Secure Authentication** - Supabase authentication
-- ✅ **Data Encryption** - Supabase provides encrypted storage
-- ✅ **Environment Variables** - All secrets stored locally in `.env`
+Run SQL from `SUPABASE_CODING_ATTEMPTS_SETUP.md` to enable coding attempt history.
 
----
+## Deployment (Render)
 
-## 📝 Contributing
+For a Render static site deployment:
 
-Contributions are welcome! Here's how to get started:
+- Build Command: `npm run build`
+- Publish Directory: `dist`
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+`./dist` is also valid, but `dist` is preferred.
 
----
+Because the app uses hash routing, deep-link rewrite rules are generally not required.
 
-## 📄 License
+## Important Security Notes
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- Never commit real API keys or secrets.
+- Rotate exposed keys immediately if leaked.
+- Keep `.env` local and private.
 
----
+## Supporting Docs In Repo
 
-## 💬 Support & Feedback
+- `SETUP_GROQ.md`
+- `ENV_SETUP_GUIDE.md`
+- `TOPIC_TIMESTAMP_SETUP.md`
+- `SUPABASE_CODING_ATTEMPTS_SETUP.md`
+- `IMPLEMENTATION_SUMMARY.md`
+- `CHANGES_SUMMARY.md`
 
-- 📧 **Email**: [Open an issue on GitHub](https://github.com/LakraAnshul/ModuLearn/issues)
-- 🐛 **Report Bugs**: [GitHub Issues](https://github.com/LakraAnshul/ModuLearn/issues)
-- ✨ **Request Features**: [GitHub Discussions](https://github.com/LakraAnshul/ModuLearn/discussions)
+## Screenshots
 
----
+### Landing Page
+![Landing Page](img/landingpage.png)
 
-## 📚 Learning Resources
+### Dashboard
+![Dashboard](img/dashboard.png)
 
-- [Groq API Documentation](https://console.groq.com/docs)
-- [Supabase Documentation](https://supabase.co/docs)
-- [React Documentation](https://react.dev)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [Vite Guide](https://vitejs.dev/guide/)
+### Path Generator
+![Path Generator](img/path%20generator%20page.png)
 
----
+### Generated Path Example
+![Generated Path Example](img/generated%20path%20example.png)
 
-<div align="center">
+### Learning Journey
+![Learning Journey](img/learning%20journey%20page.png)
 
-### Built with ❤️ by [Anshul Lakra](https://github.com/LakraAnshul)
+### User Profiling
+![User Profiling](img/user%20profiling.png)
 
-⭐ If you find this project helpful, please consider giving it a star!
+### User Profiling (Variant)
+![User Profiling 2](img/user%20profiling%202.png)
 
-</div>
+## License
+
+MIT - see `LICENSE`.
