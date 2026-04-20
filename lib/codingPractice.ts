@@ -50,15 +50,15 @@ const LANGUAGE_OPTIONS: PracticeLanguageOption[] = [
 ];
 
 const LANGUAGE_KEYWORDS: Record<SupportedProgrammingLanguage, string[]> = {
-  python: ['python', 'py', 'pandas', 'numpy', 'django', 'flask'],
-  javascript: ['javascript', 'js', 'node', 'react', 'vue', 'angular'],
-  typescript: ['typescript', 'ts', 'type safety'],
+  python: ['python programming', 'python code', 'python script', 'pandas', 'numpy', 'django', 'flask'],
+  javascript: ['javascript', 'js', 'node.js', 'nodejs', 'react', 'vue', 'angular'],
+  typescript: ['typescript', 'type safety'],
   java: ['java', 'spring', 'jvm', 'object oriented java'],
   cpp: ['c++', 'cpp', 'stl'],
   c: ['language c', 'ansi c', 'pointer in c', 'c programming'],
 };
 
-const CODING_TOPIC_KEYWORDS = [
+const STRONG_CODING_KEYWORDS = [
   'algorithm',
   'data structure',
   'dsa',
@@ -76,19 +76,54 @@ const CODING_TOPIC_KEYWORDS = [
   'oop',
   'recursion',
   'dynamic programming',
-  'array',
-  'linked list',
-  'tree',
-  'graph',
   'react',
-  'python',
-  'java',
   'javascript',
   'typescript',
   'c++',
   'c language',
-  'node',
+  'node.js',
+  'nodejs',
   'sql',
+];
+
+const AMBIGUOUS_CODING_KEYWORDS = [
+  'array',
+  'linked list',
+  'tree',
+  'graph',
+  'node',
+  'function',
+  'class',
+  'object',
+];
+
+const NON_CODING_CONTEXT_KEYWORDS = [
+  'biology',
+  'anatomy',
+  'physiology',
+  'organ',
+  'cell',
+  'tissue',
+  'gene',
+  'genetics',
+  'dna',
+  'rna',
+  'protein',
+  'ecosystem',
+  'species',
+  'respiration',
+  'photosynthesis',
+  'circulatory',
+  'nervous system',
+  'digestive system',
+  'immune system',
+  'pathology',
+  'microbiology',
+  'botany',
+  'zoology',
+  'medicine',
+  'disease',
+  'human body',
 ];
 
 type ChallengeTemplateType =
@@ -105,7 +140,16 @@ const normalize = (value: string): string => value.toLowerCase().trim();
 const includesKeyword = (corpus: string, keyword: string): boolean => {
   const cleanKeyword = normalize(keyword);
   if (!cleanKeyword) return false;
-  return corpus.includes(cleanKeyword);
+
+  const escaped = cleanKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`(^|[^a-z0-9+])${escaped}(?=$|[^a-z0-9+])`, 'i');
+  return pattern.test(corpus);
+};
+
+const countKeywordMatches = (corpus: string, keywords: string[]): number => {
+  return keywords.reduce((count, keyword) => {
+    return count + (includesKeyword(corpus, keyword) ? 1 : 0);
+  }, 0);
 };
 
 export const getPracticeLanguageOptions = (): PracticeLanguageOption[] => LANGUAGE_OPTIONS;
@@ -121,8 +165,19 @@ export const detectCodingContext = (
     return LANGUAGE_KEYWORDS[language].some((keyword) => includesKeyword(corpus, keyword));
   });
 
+  const strongCodingScore = countKeywordMatches(corpus, STRONG_CODING_KEYWORDS);
+  const ambiguousCodingScore = countKeywordMatches(corpus, AMBIGUOUS_CODING_KEYWORDS);
+  const nonCodingScore = countKeywordMatches(corpus, NON_CODING_CONTEXT_KEYWORDS);
+
+  const hasLanguageSignal = languageCandidates.length > 0;
+  const hasStrongCodingSignal = strongCodingScore > 0;
+  const hasAmbiguousOnlySignal = !hasStrongCodingSignal && ambiguousCodingScore > 0;
+  const hasDominantNonCodingSignal = nonCodingScore >= 2;
+
   const isCodingTopic =
-    languageCandidates.length > 0 || CODING_TOPIC_KEYWORDS.some((keyword) => includesKeyword(corpus, keyword));
+    (hasLanguageSignal || hasStrongCodingSignal) &&
+    !(hasDominantNonCodingSignal && !hasStrongCodingSignal) &&
+    !hasAmbiguousOnlySignal;
 
   const lockedLanguage = languageCandidates.length === 1 ? languageCandidates[0] : null;
 

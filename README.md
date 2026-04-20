@@ -21,6 +21,7 @@ This project has evolved beyond simple topic-based generation. Current implement
 - Adaptive curriculum generation with learning depth and familiarity preferences
 - Google OAuth sign-in with Supabase + PKCE callback handling for hash-based routing
 - Interactive learning interface with AI explanations per subtopic
+- Interactive BioDigital 3D anatomy viewer for biology topics
 - Topic-aware YouTube recommendations with timestamp jumping
 - Built-in coding practice and test execution using Judge0
 - Path structuring, AI module refinement, and mindmap export
@@ -43,6 +44,7 @@ This project has evolved beyond simple topic-based generation. Current implement
 ### Learning experience
 - Structured module view with expandable subtopics
 - AI explanations for selected subtopics
+- Embedded BioDigital Human viewer for topic-aligned 3D biology models
 - YouTube learning resources with topic timestamp support
 - Coding practice workspace with Monaco editor
 - Code run and test-case validation via Judge0
@@ -128,6 +130,15 @@ VITE_GROQ_API_KEY=your_groq_key
 # Required for YouTube recommendations
 VITE_YOUTUBE_API_KEY=your_youtube_api_key
 
+# Required for BioDigital 3D viewer
+VITE_BIODIGITAL_DEVELOPER_KEY=your_biodigital_developer_key
+
+# Optional BioDigital tuning
+VITE_BIODIGITAL_VIEWER_BASE_URL=https://human.biodigital.com/viewer/
+VITE_BIODIGITAL_DEFAULT_MODEL_ID=production/maleAdult/beating_heart_02
+# JSON object string: keyword -> modelId
+VITE_BIODIGITAL_TOPIC_MODEL_MAP={"heart":"production/maleAdult/beating_heart_02"}
+
 # Optional Gemini usage in selected flows
 VITE_GEMINI_API_KEY=your_gemini_key
 # or
@@ -146,6 +157,7 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 Notes:
 - The current Supabase initializer reads `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 - If those are missing, the code can fall back to hardcoded values in `lib/supabase.ts`.
+- BioDigital viewer runs in an iframe and requires a valid developer key (`dk`) from your BioDigital app settings.
 
 ### 4) Run
 

@@ -36,6 +36,7 @@ import {
   RunCodeResult,
   RunTestSuiteResult,
 } from '../../lib/judge0Service.ts';
+import BioDigitalViewerPanel from '../../components/BioDigitalViewerPanel.tsx';
 
 interface LocationState {
   curriculum: GeneratedCurriculum;
@@ -1913,16 +1914,27 @@ const LearningInterface: React.FC = () => {
                   </button>
                 </div>
 
-                {explanationLoading ? (
-                  <div className="flex items-center justify-center gap-3 py-8">
-                    <Loader2 className="animate-spin text-peach" size={24} />
-                    <p className="text-zinc-600 dark:text-zinc-400 font-semibold">Generating detailed explanation...</p>
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+                  <div className="xl:col-span-3">
+                    {explanationLoading ? (
+                      <div className="flex items-center justify-center gap-3 py-8">
+                        <Loader2 className="animate-spin text-peach" size={24} />
+                        <p className="text-zinc-600 dark:text-zinc-400 font-semibold">Generating detailed explanation...</p>
+                      </div>
+                    ) : topicExplanation ? (
+                      <div className="prose prose-zinc dark:prose-invert max-w-none">
+                        <div className="space-y-1">{renderStructuredExplanation(topicExplanation)}</div>
+                      </div>
+                    ) : null}
                   </div>
-                ) : topicExplanation ? (
-                  <div className="prose prose-zinc dark:prose-invert max-w-none">
-                    <div className="space-y-1">{renderStructuredExplanation(topicExplanation)}</div>
+                  <div className="xl:col-span-2">
+                    <BioDigitalViewerPanel
+                      topic={selectedTopic}
+                      moduleTitle={currentModule?.title || ''}
+                      curriculumTitle={curriculum?.title || ''}
+                    />
                   </div>
-                ) : null}
+                </div>
               </div>
             )}
           </div>

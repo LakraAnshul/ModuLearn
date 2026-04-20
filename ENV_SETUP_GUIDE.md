@@ -60,9 +60,33 @@ type .env
 ### ✅ Final `.env` File Should Look Like:
 ```env
 VITE_GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+VITE_BIODIGITAL_DEVELOPER_KEY=your_biodigital_developer_key
+
+# Optional but recommended for better topic-model matching
+VITE_BIODIGITAL_DEFAULT_MODEL_ID=production/maleAdult/beating_heart_02
+VITE_BIODIGITAL_TOPIC_MODEL_MAP={"heart":"production/maleAdult/beating_heart_02"}
 ```
 
 **That's it!** No other environment variables needed unless you want to customize.
+
+---
+
+## 🫀 BioDigital 3D Setup (5-10 minutes)
+
+1. Create a BioDigital account at https://developer.biodigital.com/
+2. Register your app and copy the developer key (dk value)
+3. Add `VITE_BIODIGITAL_DEVELOPER_KEY` to `.env`
+4. Open BioDigital Human and publish or copy model IDs you want to use
+5. Add those model IDs in `VITE_BIODIGITAL_TOPIC_MODEL_MAP` as JSON keyword-to-model mapping
+
+Example:
+```env
+VITE_BIODIGITAL_TOPIC_MODEL_MAP={"brain":"your/model/id","lungs":"your/model/id","kidney":"your/model/id"}
+```
+
+Notes:
+- BioDigital viewer requires HTTPS in production.
+- During local development, use the domain/IP allowed in your BioDigital app settings.
 
 ---
 
