@@ -11,8 +11,10 @@ import {
   Loader2
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.ts';
-import { db, UserProfile } from '../../lib/database.ts';
+import { db, UserProfile, SavedLearningPathSummary } from '../../lib/database.ts';
 import logo from '../logo.svg';
+import { ChatbotContextProvider } from './ChatbotContext.tsx';
+import Chatbot from './Chatbot.tsx';
 
 const SidebarItem: React.FC<{ to: string; icon: React.ReactNode; label: string; active?: boolean }> = ({ to, icon, label, active }) => (
   <Link 
@@ -35,6 +37,7 @@ const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [learningPaths, setLearningPaths] = useState<SavedLearningPathSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Check if we're in learning interface - hide sidebars for full content view
@@ -59,6 +62,8 @@ const AppLayout: React.FC = () => {
            return;
         }
         setProfile(userData);
+        // Load paths for chatbot context (non-blocking)
+        db.listUserLearningPaths(20).then(setLearningPaths).catch(console.warn);
       } catch (err) {
         console.error("Profile load failed", err);
       } finally {
@@ -89,6 +94,7 @@ const AppLayout: React.FC = () => {
   }
 
   return (
+    <ChatbotContextProvider>
     <div className="flex min-h-screen bg-[#fafafa] dark:bg-zinc-950 transition-colors duration-200 overflow-x-hidden">
       {/* Sidebar - Hidden on learning path */}
       {!isLearningPath && (
@@ -193,7 +199,11 @@ const AppLayout: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* ── Floating AI Chatbot (visible on all authenticated pages) ── */}
+      <Chatbot userProfile={profile} learningPaths={learningPaths} />
     </div>
+    </ChatbotContextProvider>
   );
 };
 

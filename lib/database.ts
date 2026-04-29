@@ -53,6 +53,34 @@ export interface SavedLearningPathDetail extends SavedLearningPathSummary {
   metadata: Record<string, unknown>;
 }
 
+export interface SaveQuizAttemptInput {
+  learningPathId: string;
+  moduleId: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  score: number;
+  total: number;
+  questions?: unknown;
+}
+
+export interface QuizAttemptDbRecord {
+  id: string;
+  learningPathId: string;
+  moduleId: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  score: number;
+  total: number;
+  createdAt: string;
+  /** Full question list with user's chosen answers, present when the attempt was saved with review data */
+  questions?: {
+    id: string;
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+  }[];
+  userAnswers?: number[];
+}
+
 export interface SaveCodingAttemptInput {
   learningPathId: string;
   moduleId: string;
@@ -452,6 +480,77 @@ export const db = {
       metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
       createdAt: row.created_at,
     }));
+  },
+
+  async saveQuizAttempt(input: SaveQuizAttemptInput): Promise<void> {
+    if (!isConfigured()) {
+      return;
+    }
+
+    const userId = await getCurrentUserId();
+    const { error } = await supabase
+      .from('quiz_attempts')
+      .insert({
+        user_id: userId,
+        learning_path_id: input.learningPathId,
+        module_id: input.moduleId,
+        difficulty: input.difficulty,
+        score: Math.max(0, toNumber(input.score, 0)),
+        total: Math.max(0, toNumber(input.total, 0)),
+        questions: input.questions || [],
+      });
+
+    if (error) {
+      console.error('Failed to save quiz attempt:', error);
+      throw new Error(error.message || 'Failed to save quiz attempt');
+    }
+  },
+
+  async listQuizAttempts(
+    learningPathId: string,
+    moduleId: string,
+    limit = 10,
+  ): Promise<QuizAttemptDbRecord[]> {
+    if (!isConfigured()) {
+      return [];
+    }
+
+    const userId = await getCurrentUserId();
+    const safeLimit = Math.max(1, Math.min(50, limit));
+
+    const { data, error } = await supabase
+      .from('quiz_attempts')
+      .select('id,learning_path_id,module_id,difficulty,score,total,created_at,questions')
+      .eq('user_id', userId)
+      .eq('learning_path_id', learningPathId)
+      .eq('module_id', moduleId)
+      .order('created_at', { ascending: false })
+      .limit(safeLimit);
+
+    if (error) {
+      console.error('Failed to list quiz attempts:', error);
+      throw new Error(error.message || 'Failed to list quiz attempts');
+    }
+
+    return (data || []).map((row) => {
+      // questions column stores { questions: QuizQuestion[], userAnswers: number[] }
+      const stored = row.questions && typeof row.questions === 'object' && !Array.isArray(row.questions)
+        ? (row.questions as { questions?: unknown[]; userAnswers?: unknown[] })
+        : null;
+      const qs = Array.isArray(stored?.questions) ? stored.questions as QuizAttemptDbRecord['questions'] : undefined;
+      const ua = Array.isArray(stored?.userAnswers) ? (stored.userAnswers as number[]) : undefined;
+      return {
+        id: row.id,
+        learningPathId: row.learning_path_id,
+        moduleId: row.module_id,
+        difficulty: row.difficulty as 'easy' | 'medium' | 'hard',
+        score: toNumber(row.score, 0),
+        total: toNumber(row.total, 0),
+        createdAt: row.created_at,
+        questions: qs,
+        userAnswers: ua,
+      };
+    });
   },
 
   /**

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 import { 
   ArrowLeft, 
@@ -14,12 +14,20 @@ import {
   Loader2,
   X,
   Play,
-  Code2
+  Code2,
+  Brain,
+  Trophy,
+  Target,
+  Star,
+  RotateCcw,
+  Zap,
+  ChevronDown
 } from 'lucide-react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { GeneratedCurriculum, CurriculumModule, LearningPreferences } from '../../backend/groqService.ts';
 import { groqService } from '../../backend/groqService.ts';
-import { db, UserProfile } from '../../lib/database.ts';
+import { db, UserProfile, QuizAttemptDbRecord } from '../../lib/database.ts';
+import { quizService, QuizQuestion, QuizDifficulty, QUESTION_COUNTS, ESTIMATED_MINUTES } from '../../lib/quizService.ts';
 import { findTopicTimestamp, TopicTimestampResult, formatSeconds } from '../../lib/topicTimestampService.ts';
 import {
   detectCodingContext,
@@ -37,6 +45,7 @@ import {
   RunTestSuiteResult,
 } from '../../lib/judge0Service.ts';
 import BioDigitalViewerPanel from '../../components/BioDigitalViewerPanel.tsx';
+import { useChatbotContext } from '../../components/app/ChatbotContext.tsx';
 
 interface LocationState {
   curriculum: GeneratedCurriculum;
@@ -376,7 +385,50 @@ const LearningInterface: React.FC = () => {
   const [attemptHistoryByModule, setAttemptHistoryByModule] = useState<Record<string, AttemptHistoryEntry[]>>({});
   const [attemptsLoadedFromDb, setAttemptsLoadedFromDb] = useState<Record<string, boolean>>({});
 
+  // ─── Quiz State ──────────────────────────────────────────────────────────
+  type QuizPhase = 'idle' | 'difficulty-select' | 'generating' | 'in-quiz' | 'results' | 'review';
+  const [quizPhase, setQuizPhase] = useState<QuizPhase>('idle');
+  const [quizDifficulty, setQuizDifficulty] = useState<QuizDifficulty>('medium');
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
+  const [quizCurrentIndex, setQuizCurrentIndex] = useState(0);
+  const [quizSelectedOption, setQuizSelectedOption] = useState<number | null>(null);
+  const [quizAnswered, setQuizAnswered] = useState(false);
+  const [quizUserAnswers, setQuizUserAnswers] = useState<number[]>([]);
+  const [quizGenerating, setQuizGenerating] = useState(false);
+  const [quizError, setQuizError] = useState('');
+  const [quizAttemptHistory, setQuizAttemptHistory] = useState<Record<string, QuizAttemptDbRecord[]>>({});
+  const [quizHistoryLoading, setQuizHistoryLoading] = useState<Record<string, boolean>>({});
+  const [quizReviewAttempt, setQuizReviewAttempt] = useState<QuizAttemptDbRecord | null>(null);
+  const [quizReviewIndex, setQuizReviewIndex] = useState(0);
+
   const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+
+  // ─── Chatbot context sync ────────────────────────────────────────────────
+  const { setCourseContext, triggerAutoOpen } = useChatbotContext();
+
+  // Auto-open chatbot whenever the user navigates to a new learning path
+  useEffect(() => {
+    if (pathId) {
+      triggerAutoOpen();
+    }
+    // Cleanup: clear course context when leaving the page
+    return () => { setCourseContext(null); };
+  }, [pathId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep chatbot course context in sync with current learning state
+  useEffect(() => {
+    if (!curriculum || modules.length === 0) return;
+    setCourseContext({
+      title: curriculum.title,
+      description: curriculum.description,
+      modules,
+      activeModuleIndex: activeModule,
+      generationPreferences,
+      topicExplanations: topicExplanation && selectedTopic
+        ? { [selectedTopic]: topicExplanation }
+        : {},
+    });
+  }, [curriculum, modules, activeModule, generationPreferences, topicExplanation, selectedTopic]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getDisplayLanguage = (languageCode: string): string => {
     const normalized = (languageCode || '').trim().toLowerCase();
@@ -1403,7 +1455,128 @@ const LearningInterface: React.FC = () => {
     };
   }, [selectedTopic, currentCacheKey, currentModule, currentVideos]);
 
+  // ─── Quiz Handlers ────────────────────────────────────────────────────────
+
+  const handleOpenQuizDifficultySelect = useCallback(() => {
+    setQuizPhase('difficulty-select');
+    setQuizError('');
+  }, []);
+
+  const handleStartQuiz = useCallback(async () => {
+    if (!currentModule || !curriculum) return;
+    setQuizPhase('generating');
+    setQuizGenerating(true);
+    setQuizError('');
+    setQuizQuestions([]);
+    setQuizCurrentIndex(0);
+    setQuizSelectedOption(null);
+    setQuizAnswered(false);
+    setQuizUserAnswers([]);
+
+    try {
+      const questions = await quizService.generateQuestions(
+        currentModule.title,
+        currentModule.subtopics || [],
+        curriculum.title,
+        quizDifficulty,
+      );
+      setQuizQuestions(questions);
+      setQuizPhase('in-quiz');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to generate quiz.';
+      setQuizError(msg);
+      setQuizPhase('difficulty-select');
+    } finally {
+      setQuizGenerating(false);
+    }
+  }, [currentModule, curriculum, quizDifficulty]);
+
+  const handleSelectOption = useCallback((optionIndex: number) => {
+    if (quizAnswered) return;
+    setQuizSelectedOption(optionIndex);
+    setQuizAnswered(true);
+    setQuizUserAnswers(prev => {
+      const next = [...prev];
+      next[quizCurrentIndex] = optionIndex;
+      return next;
+    });
+  }, [quizAnswered, quizCurrentIndex]);
+
+  const handleQuizNextQuestion = useCallback(() => {
+    if (quizCurrentIndex < quizQuestions.length - 1) {
+      setQuizCurrentIndex(prev => prev + 1);
+      setQuizSelectedOption(null);
+      setQuizAnswered(false);
+    } else {
+      // Quiz finished — go to results
+      setQuizPhase('results');
+      // Persist attempt
+      if (currentModule && savedPathId) {
+        const score = quizUserAnswers.filter(
+          (ans, i) => ans === quizQuestions[i]?.correctIndex
+        ).length;
+        db.saveQuizAttempt({
+          learningPathId: savedPathId,
+          moduleId: currentModule.id,
+          difficulty: quizDifficulty,
+          score,
+          total: quizQuestions.length,
+          questions: { questions: quizQuestions, userAnswers: quizUserAnswers },
+        }).then(() => {
+          // Refresh history
+          if (savedPathId && currentModule) {
+            db.listQuizAttempts(savedPathId, currentModule.id, 5).then(records => {
+              setQuizAttemptHistory(prev => ({
+                ...prev,
+                [currentModule.id]: records,
+              }));
+            }).catch(() => {/* silent */});
+          }
+        }).catch(err => console.warn('Failed to save quiz attempt:', err));
+      }
+    }
+  }, [quizCurrentIndex, quizQuestions, quizUserAnswers, currentModule, savedPathId, quizDifficulty]);
+
+  const handleRetakeQuiz = useCallback(() => {
+    setQuizPhase('difficulty-select');
+    setQuizError('');
+  }, []);
+
+  const handleCloseQuiz = useCallback(() => {
+    setQuizPhase('idle');
+    setQuizError('');
+  }, []);
+
+  const handleOpenReview = useCallback((attempt: QuizAttemptDbRecord) => {
+    setQuizReviewAttempt(attempt);
+    setQuizReviewIndex(0);
+    setQuizPhase('review');
+  }, []);
+
+  const handleCloseReview = useCallback(() => {
+    setQuizReviewAttempt(null);
+    setQuizPhase('idle');
+  }, []);
+
+  // Load quiz history whenever module changes
+  useEffect(() => {
+    if (!savedPathId || !currentModule) return;
+    const moduleId = currentModule.id;
+    if (quizHistoryLoading[moduleId] || quizAttemptHistory[moduleId]) return;
+
+    setQuizHistoryLoading(prev => ({ ...prev, [moduleId]: true }));
+    db.listQuizAttempts(savedPathId, moduleId, 5)
+      .then(records => {
+        setQuizAttemptHistory(prev => ({ ...prev, [moduleId]: records }));
+      })
+      .catch(() => {/* silent */})
+      .finally(() => {
+        setQuizHistoryLoading(prev => ({ ...prev, [moduleId]: false }));
+      });
+  }, [savedPathId, currentModule]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (error) {
+
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-white dark:bg-zinc-950">
         <div className="max-w-md text-center">
@@ -1434,6 +1607,7 @@ const LearningInterface: React.FC = () => {
   const languageBadgeCodes: string[] = Array.from(new Set<string>(activeLanguageCodes));
 
   return (
+    <>
     <div className="flex h-screen w-screen bg-white dark:bg-zinc-950 overflow-hidden">
       {/* Module Sidebar - Collapsible */}
       <aside 
@@ -2020,11 +2194,470 @@ const LearningInterface: React.FC = () => {
           </div>
         </div>
 
-        <button className="w-full bg-peach text-white py-4 lg:py-5 rounded-xl font-bold shadow-lg shadow-peach/20 hover:opacity-90 transition-all text-sm lg:text-base">
+        {/* Take Module Quiz Button */}
+        <button
+          onClick={handleOpenQuizDifficultySelect}
+          className="w-full bg-peach text-white py-4 lg:py-5 rounded-xl font-bold shadow-lg shadow-peach/20 hover:opacity-90 transition-all text-sm lg:text-base flex items-center justify-center gap-2"
+        >
+          <Brain size={18} />
           Take Module Quiz
         </button>
+
+        {/* Previous Quiz Attempts */}
+        {currentModule && (
+          <div className="bg-white dark:bg-zinc-800 p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-700">
+            <h3 className="font-bold text-sm flex items-center gap-2 dark:text-white mb-4">
+              <Target size={15} className="text-peach" /> Previous Quiz Attempts
+            </h3>
+            {quizHistoryLoading[currentModule.id] ? (
+              <div className="flex items-center gap-2 text-zinc-400 text-xs"><Loader2 size={14} className="animate-spin" /> Loading...</div>
+            ) : (quizAttemptHistory[currentModule.id] || []).length === 0 ? (
+              <p className="text-xs text-zinc-400">No quiz attempts yet for this module.</p>
+            ) : (
+              <div className="space-y-2">
+                {(quizAttemptHistory[currentModule.id] || []).map((attempt, i) => {
+                  const pct = attempt.total > 0 ? Math.round((attempt.score / attempt.total) * 100) : 0;
+                  const diffColor = attempt.difficulty === 'easy' ? 'text-emerald-500' : attempt.difficulty === 'medium' ? 'text-amber-500' : 'text-red-500';
+                  const diffBg = attempt.difficulty === 'easy' ? 'bg-emerald-50 dark:bg-emerald-900/20' : attempt.difficulty === 'medium' ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-red-50 dark:bg-red-900/20';
+                  return (
+                    <div key={attempt.id || i} className="rounded-lg border border-zinc-100 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-3 py-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${diffBg} ${diffColor}`}>{attempt.difficulty}</span>
+                        <span className={`text-xs font-bold ${pct >= 70 ? 'text-emerald-500' : 'text-amber-500'}`}>{pct}%</span>
+                      </div>
+                      <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{attempt.score}/{attempt.total} correct</p>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">{new Date(attempt.createdAt).toLocaleDateString()}</p>
+                      {attempt.questions && attempt.questions.length > 0 && (
+                        <button
+                          onClick={() => handleOpenReview(attempt)}
+                          className="mt-2 w-full text-[10px] font-bold uppercase tracking-widest text-peach hover:underline text-left flex items-center gap-1"
+                        >
+                          <BookOpen size={10} /> Review Answers
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </aside>
     </div>
+
+    {/* ═══════════ QUIZ OVERLAY ═══════════ */}
+    {quizPhase !== 'idle' && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+
+        {/* ── Difficulty Select ── */}
+        {(quizPhase === 'difficulty-select' || quizPhase === 'generating') && (
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-peach to-orange-400 p-6 text-white relative">
+              <button onClick={handleCloseQuiz} className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+              <div className="flex items-center gap-3 mb-1">
+                <Brain size={24} />
+                <h2 className="text-xl font-extrabold">Module Quiz</h2>
+              </div>
+              <p className="text-white/80 text-sm">{currentModule?.title}</p>
+            </div>
+
+            <div className="p-6">
+              {quizPhase === 'generating' ? (
+                <div className="flex flex-col items-center py-8 gap-4">
+                  <div className="w-16 h-16 rounded-full bg-peach/10 flex items-center justify-center">
+                    <Loader2 size={32} className="text-peach animate-spin" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-bold text-zinc-900 dark:text-white">Crafting your quiz...</p>
+                    <p className="text-sm text-zinc-400 mt-1">Generating {QUESTION_COUNTS[quizDifficulty]} {quizDifficulty} questions</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-zinc-600 dark:text-zinc-300 mb-5">Choose your difficulty level:</p>
+
+                  {quizError && (
+                    <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
+                      {quizError}
+                    </div>
+                  )}
+
+                  <div className="space-y-3 mb-6">
+                    {(['easy', 'medium', 'hard'] as QuizDifficulty[]).map(diff => {
+                      const meta = {
+                        easy: { label: 'Easy', desc: 'Basic recall & definitions', icon: Star, color: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-700', text: 'text-emerald-600 dark:text-emerald-400', activeBorder: 'border-emerald-500' },
+                        medium: { label: 'Medium', desc: 'Applied understanding', icon: Target, color: 'amber', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-700', text: 'text-amber-600 dark:text-amber-400', activeBorder: 'border-amber-500' },
+                        hard: { label: 'Hard', desc: 'Deep mastery & edge cases', icon: Zap, color: 'red', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-700', text: 'text-red-600 dark:text-red-400', activeBorder: 'border-red-500' },
+                      }[diff];
+                      const Icon = meta.icon;
+                      const isSelected = quizDifficulty === diff;
+                      return (
+                        <button
+                          key={diff}
+                          onClick={() => setQuizDifficulty(diff)}
+                          className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${isSelected ? `${meta.bg} ${meta.activeBorder}` : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 hover:border-zinc-300'}`}
+                        >
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${meta.bg}`}>
+                            <Icon size={18} className={meta.text} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className={`font-bold text-sm ${isSelected ? meta.text : 'text-zinc-800 dark:text-zinc-200'}`}>{meta.label}</span>
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{ESTIMATED_MINUTES[diff]}m</span>
+                            </div>
+                            <p className="text-xs text-zinc-500 mt-0.5">{meta.desc} • {QUESTION_COUNTS[diff]} questions</p>
+                          </div>
+                          {isSelected && <CheckCircle size={18} className={meta.text} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button onClick={handleCloseQuiz} className="flex-1 py-3 rounded-xl border-2 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 font-bold text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                      Cancel
+                    </button>
+                    <button onClick={handleStartQuiz} className="flex-1 py-3 rounded-xl bg-peach text-white font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                      <Brain size={16} /> Start Quiz
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── In-Quiz ── */}
+        {quizPhase === 'in-quiz' && quizQuestions.length > 0 && (() => {
+          const q = quizQuestions[quizCurrentIndex];
+          const isCorrect = quizAnswered && quizSelectedOption === q.correctIndex;
+          const progress = ((quizCurrentIndex + (quizAnswered ? 1 : 0)) / quizQuestions.length) * 100;
+          const isLast = quizCurrentIndex === quizQuestions.length - 1;
+          return (
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col" style={{ maxHeight: '90vh' }}>
+              {/* Progress header */}
+              <div className="bg-gradient-to-r from-peach to-orange-400 px-6 py-4 text-white flex-shrink-0">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Brain size={18} />
+                    <span className="font-bold text-sm">{currentModule?.title}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-white/90">{quizCurrentIndex + 1} / {quizQuestions.length}</span>
+                    <button onClick={handleCloseQuiz} className="text-white/70 hover:text-white transition-colors"><X size={18} /></button>
+                  </div>
+                </div>
+                <div className="w-full bg-white/20 rounded-full h-1.5">
+                  <div className="bg-white h-1.5 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+
+              <div className="overflow-y-auto flex-1 p-6">
+                {/* Question */}
+                <div className="mb-6">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-peach mb-2 block">Question {quizCurrentIndex + 1}</span>
+                  <p className="text-lg font-bold text-zinc-900 dark:text-white leading-snug">{q.question}</p>
+                </div>
+
+                {/* Options */}
+                <div className="space-y-3 mb-5">
+                  {q.options.map((option, idx) => {
+                    let btnClass = 'w-full text-left p-4 rounded-xl border-2 font-semibold text-sm transition-all flex items-center gap-3 ';
+                    if (!quizAnswered) {
+                      btnClass += 'border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:border-peach hover:bg-peach/5 cursor-pointer';
+                    } else if (idx === q.correctIndex) {
+                      btnClass += 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300';
+                    } else if (idx === quizSelectedOption && idx !== q.correctIndex) {
+                      btnClass += 'border-red-400 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300';
+                    } else {
+                      btnClass += 'border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/50 text-zinc-400 dark:text-zinc-500 cursor-default';
+                    }
+                    const optionLabel = ['A', 'B', 'C', 'D'][idx];
+                    return (
+                      <button key={idx} onClick={() => handleSelectOption(idx)} disabled={quizAnswered} className={btnClass}>
+                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${!quizAnswered ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300' : idx === q.correctIndex ? 'bg-emerald-500 text-white' : idx === quizSelectedOption ? 'bg-red-400 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>
+                          {!quizAnswered ? optionLabel : idx === q.correctIndex ? '✓' : idx === quizSelectedOption ? '✗' : optionLabel}
+                        </span>
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Explanation */}
+                {quizAnswered && (
+                  <div className={`p-4 rounded-xl border-2 mb-5 ${isCorrect ? 'border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20' : 'border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      {isCorrect ? <CheckCircle size={16} className="text-emerald-500 flex-shrink-0" /> : <AlertCircle size={16} className="text-amber-500 flex-shrink-0" />}
+                      <span className={`text-xs font-black uppercase tracking-widest ${isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                        {isCorrect ? 'Correct!' : 'Not quite'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{q.explanation}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-zinc-100 dark:border-zinc-800 p-4 flex-shrink-0 flex items-center justify-between">
+                <span className="text-xs text-zinc-400 font-semibold">{quizDifficulty.charAt(0).toUpperCase() + quizDifficulty.slice(1)} Difficulty</span>
+                {quizAnswered && (
+                  <button onClick={handleQuizNextQuestion} className="flex items-center gap-2 bg-peach text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">
+                    {isLast ? (<><Trophy size={15} /> Finish Quiz</>) : (<>Next <ChevronRight size={15} /></>)}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── Results ── */}
+        {quizPhase === 'results' && (() => {
+          const score = quizUserAnswers.filter((ans, i) => ans === quizQuestions[i]?.correctIndex).length;
+          const total = quizQuestions.length;
+          const pct = total > 0 ? Math.round((score / total) * 100) : 0;
+          const grade = pct >= 90 ? { label: 'Excellent!', emoji: '🏆', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-700' }
+            : pct >= 70 ? { label: 'Great Job!', emoji: '⭐', color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-700' }
+            : { label: 'Keep Practicing!', emoji: '📚', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-700' };
+
+          const circumference = 2 * Math.PI * 48;
+          const strokeDashoffset = circumference - (pct / 100) * circumference;
+
+          return (
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+              <div className="bg-gradient-to-r from-peach to-orange-400 px-6 py-5 text-white text-center">
+                <h2 className="text-xl font-extrabold">Quiz Complete!</h2>
+                <p className="text-white/80 text-sm mt-1">{currentModule?.title}</p>
+              </div>
+
+              <div className="p-6">
+                {/* Score ring */}
+                <div className="flex flex-col items-center mb-6">
+                  <div className="relative w-36 h-36 mb-3">
+                    <svg className="w-full h-full -rotate-90" viewBox="0 0 112 112">
+                      <circle cx="56" cy="56" r="48" fill="none" stroke="currentColor" strokeWidth="8" className="text-zinc-100 dark:text-zinc-800" />
+                      <circle
+                        cx="56" cy="56" r="48" fill="none" stroke="currentColor" strokeWidth="8"
+                        strokeLinecap="round"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        className={pct >= 90 ? 'text-emerald-500' : pct >= 70 ? 'text-amber-500' : 'text-blue-500'}
+                        style={{ transition: 'stroke-dashoffset 1s ease-out' }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-3xl font-extrabold text-zinc-900 dark:text-white">{pct}%</span>
+                      <span className="text-xs text-zinc-400 font-semibold">{score}/{total}</span>
+                    </div>
+                  </div>
+                  <div className={`px-4 py-2 rounded-full border ${grade.bg} ${grade.border}`}>
+                    <span className={`text-sm font-black ${grade.color}`}>{grade.emoji} {grade.label}</span>
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  {[
+                    { label: 'Correct', val: score, color: 'text-emerald-500' },
+                    { label: 'Wrong', val: total - score, color: 'text-red-400' },
+                    { label: 'Accuracy', val: `${pct}%`, color: 'text-peach' },
+                  ].map(stat => (
+                    <div key={stat.label} className="text-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800">
+                      <p className={`text-xl font-extrabold ${stat.color}`}>{stat.val}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mt-0.5">{stat.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Difficulty badge */}
+                <div className="flex items-center justify-center gap-2 mb-6">
+                  <span className="text-xs text-zinc-400">Difficulty:</span>
+                  <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full ${quizDifficulty === 'easy' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : quizDifficulty === 'medium' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>
+                    {quizDifficulty}
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button onClick={handleRetakeQuiz} className="flex-1 py-3 rounded-xl border-2 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 font-bold text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
+                    <RotateCcw size={15} /> Retake
+                  </button>
+                  <button onClick={handleCloseQuiz} className="flex-1 py-3 rounded-xl bg-peach text-white font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                    <BookOpen size={15} /> Back to Module
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+        {/* ── Review ── */}
+        {quizPhase === 'review' && quizReviewAttempt && quizReviewAttempt.questions && (() => {
+          const qs = quizReviewAttempt.questions!;
+          const ua = quizReviewAttempt.userAnswers || [];
+          const total = qs.length;
+          const reviewScore = quizReviewAttempt.score;
+          const pct = total > 0 ? Math.round((reviewScore / total) * 100) : 0;
+          const q = qs[quizReviewIndex];
+          const userChose = ua[quizReviewIndex];
+          const isCorrect = userChose === q?.correctIndex;
+          const hasChosen = typeof userChose === 'number';
+          return (
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col" style={{ maxHeight: '90vh' }}>
+              {/* Header */}
+              <div className="bg-gradient-to-br from-zinc-800 to-zinc-900 dark:from-zinc-700 dark:to-zinc-800 px-6 py-4 text-white flex-shrink-0">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                      <BookOpen size={15} className="text-white" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">Quiz Review</p>
+                      <p className="text-white/60 text-xs">{quizReviewAttempt.difficulty.charAt(0).toUpperCase() + quizReviewAttempt.difficulty.slice(1)} • {new Date(quizReviewAttempt.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-lg font-extrabold">{reviewScore}/{total}</p>
+                      <p className={`text-xs font-bold ${pct >= 70 ? 'text-emerald-400' : 'text-amber-400'}`}>{pct}%</p>
+                    </div>
+                    <button onClick={handleCloseReview} className="text-white/60 hover:text-white transition-colors"><X size={18} /></button>
+                  </div>
+                </div>
+                {/* Progress dots */}
+                <div className="flex gap-1 flex-wrap">
+                  {qs.map((_, idx) => {
+                    const chosen = ua[idx];
+                    const correct = typeof chosen === 'number' && chosen === qs[idx]?.correctIndex;
+                    const wrong = typeof chosen === 'number' && chosen !== qs[idx]?.correctIndex;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setQuizReviewIndex(idx)}
+                        className={`w-5 h-5 rounded-full text-[9px] font-black transition-all ${
+                          idx === quizReviewIndex
+                            ? 'ring-2 ring-white ring-offset-1 ring-offset-zinc-800 scale-110'
+                            : ''
+                        } ${
+                          correct ? 'bg-emerald-500' : wrong ? 'bg-red-400' : 'bg-white/20'
+                        }`}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Question body */}
+              <div className="overflow-y-auto flex-1 p-6">
+                {q ? (
+                  <>
+                    <div className="mb-5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Question {quizReviewIndex + 1} of {total}</span>
+                        {hasChosen && (
+                          <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                            isCorrect ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                          }`}>{isCorrect ? '✓ Correct' : '✗ Wrong'}</span>
+                        )}
+                        {!hasChosen && (
+                          <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 dark:bg-zinc-800">Not answered</span>
+                        )}
+                      </div>
+                      <p className="text-base font-bold text-zinc-900 dark:text-white leading-snug">{q.question}</p>
+                    </div>
+
+                    {/* Options */}
+                    <div className="space-y-3 mb-5">
+                      {q.options.map((option, idx) => {
+                        const isThisCorrect = idx === q.correctIndex;
+                        const isUserChoice = idx === userChose;
+                        const isWrongChoice = isUserChoice && !isThisCorrect;
+
+                        let cls = 'w-full text-left p-4 rounded-xl border-2 text-sm flex items-start gap-3 ';
+                        if (isThisCorrect) cls += 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 ';
+                        else if (isWrongChoice) cls += 'border-red-400 bg-red-50 dark:bg-red-900/20 ';
+                        else cls += 'border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 ';
+
+                        const labelCls = `w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5 ${
+                          isThisCorrect ? 'bg-emerald-500 text-white' :
+                          isWrongChoice ? 'bg-red-400 text-white' :
+                          'bg-zinc-200 dark:bg-zinc-700 text-zinc-500'
+                        }`;
+
+                        return (
+                          <div key={idx} className={cls}>
+                            <span className={labelCls}>
+                              {isThisCorrect ? '✓' : isWrongChoice ? '✗' : ['A','B','C','D'][idx]}
+                            </span>
+                            <div className="flex-1">
+                              <span className={`font-semibold ${
+                                isThisCorrect ? 'text-emerald-700 dark:text-emerald-300' :
+                                isWrongChoice ? 'text-red-700 dark:text-red-300' :
+                                'text-zinc-600 dark:text-zinc-400'
+                              }`}>{option}</span>
+                              {isThisCorrect && !isUserChoice && (
+                                <span className="ml-2 text-[10px] font-bold uppercase tracking-widest text-emerald-500">Correct answer</span>
+                              )}
+                              {isUserChoice && (
+                                <span className={`ml-2 text-[10px] font-bold uppercase tracking-widest ${
+                                  isThisCorrect ? 'text-emerald-500' : 'text-red-400'
+                                }`}>Your answer</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Explanation */}
+                    <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2 flex items-center gap-1">
+                        <BookOpen size={10} /> Explanation
+                      </p>
+                      <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{q.explanation}</p>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-zinc-400 text-sm">Question not found.</p>
+                )}
+              </div>
+
+              {/* Footer nav */}
+              <div className="border-t border-zinc-100 dark:border-zinc-800 px-6 py-4 flex-shrink-0 flex items-center justify-between">
+                <button
+                  onClick={() => setQuizReviewIndex(prev => Math.max(0, prev - 1))}
+                  disabled={quizReviewIndex === 0}
+                  className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 font-bold text-sm disabled:opacity-40 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                >
+                  <ChevronLeft size={16} /> Prev
+                </button>
+                <span className="text-xs font-bold text-zinc-400">{quizReviewIndex + 1} / {total}</span>
+                {quizReviewIndex < total - 1 ? (
+                  <button
+                    onClick={() => setQuizReviewIndex(prev => Math.min(total - 1, prev + 1))}
+                    className="flex items-center gap-2 text-zinc-900 dark:text-white font-bold text-sm hover:text-peach dark:hover:text-peach transition-colors"
+                  >
+                    Next <ChevronRight size={16} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleCloseReview}
+                    className="flex items-center gap-2 bg-peach text-white px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
+                  >
+                    <X size={14} /> Close
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    )}
+    </>
   );
 };
 
