@@ -1,126 +1,207 @@
 <div align="center">
 
-# ModuLearn
+# 🎓 ModuLearn
 
 ### AI-Powered Learning Path Builder
 
-Transform a topic, PDF, or URL into a structured learning path personalized to your level and learning preferences.
+Turn any topic, PDF, or URL into a personalized, structured learning experience — complete with AI explanations, quizzes, flashcards, coding challenges, 3D models, and a persistent AI tutor.
 
-[![React](https://img.shields.io/badge/React-19.2-61dafb?logo=react)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6?logo=typescript)](https://www.typescriptlang.org)
-[![Vite](https://img.shields.io/badge/Vite-6.2-646cff?logo=vite)](https://vitejs.dev)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-6.2-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
+[![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20DB-3fcf8e?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
+[![License](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](LICENSE)
 
 </div>
 
-## What Is New
+---
 
-This project has evolved beyond simple topic-based generation. Current implementation includes:
+## 📸 Screenshots
 
-- Multi-source path creation: topic text, PDF upload, and URL extraction
-- Adaptive curriculum generation with learning depth and familiarity preferences
-- Google OAuth sign-in with Supabase + PKCE callback handling for hash-based routing
-- Interactive learning interface with AI explanations per subtopic
-- Interactive BioDigital 3D anatomy viewer for biology topics
-- Topic-aware YouTube recommendations with timestamp jumping
-- Built-in coding practice and test execution using Judge0
-- AI-powered MCQ and Numerical quizzes for individual modules and comprehensive Final Quizzes
-- Flashcard generation for active recall and revision
-- Advanced difficulty-aware quiz feedback system
-- Context-aware persistent AI chatbot powered by Groq
-- Path structuring, AI module refinement, and mindmap export
-- Saved path library with progress persistence in Supabase
+<table>
+  <tr>
+    <td align="center"><img src="img/landingpage.png" width="400"/><br/><b>Landing Page</b></td>
+    <td align="center"><img src="img/dashboard.png" width="400"/><br/><b>Dashboard</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="img/path%20generator%20page.png" width="400"/><br/><b>Path Generator</b></td>
+    <td align="center"><img src="img/generated%20path%20example.png" width="400"/><br/><b>Generated Path</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="img/learning%20journey%20page.png" width="400"/><br/><b>Learning Interface</b></td>
+    <td align="center"><img src="img/user%20profiling.png" width="400"/><br/><b>User Profiling</b></td>
+  </tr>
+</table>
 
-## Core Features
+---
 
-### Curriculum generation
-- Generate complete learning curricula with modules and subtopics using Groq
-- Tune output with:
-  - Learning depth: quick overview, structured learning, deep mastery
-  - Topic familiarity: new, intermediate, advanced
-- Auto-adapt for school, college, or professional profiles
+## ✨ Key Features
 
-### Source pipelines
-- Topic mode: prompt-driven generation
-- PDF mode: PDF parsing, chunking, summarization, section synthesis, then curriculum generation
-- URL mode: content extraction (direct/proxy strategies), normalization, curriculum generation
+### 🧠 Multi-Source Curriculum Generation
 
-### Learning experience
-- Structured module view with expandable subtopics
-- AI explanations for selected subtopics
-- Embedded BioDigital Human viewer for topic-aligned 3D biology models
-- YouTube learning resources with topic timestamp support
-- Coding practice workspace with Monaco editor
-- Code run and test-case validation via Judge0
-- AI-generated MCQ and Numerical Quizzes to test knowledge
-- Flashcards for easy review and memorization
-- Cumulative Final Quizzes that synthesize all course content
-- AI-driven, difficulty-aware feedback for quiz performance
-- Floating AI chatbot that provides context-aware assistance throughout the platform
-- Attempt history tracking per module
+Create learning paths from **three** distinct input sources, each powered by AI:
 
-### Authoring and visualization
-- Refine module content with AI
-- Add/remove modules before saving
-- Generate and download a mindmap image from your path
+| Source | How It Works |
+|--------|-------------|
+| **Topic** | Enter any subject — AI generates a complete, structured curriculum |
+| **PDF** | Upload a document → parsed, chunked, summarized, and synthesized into modules |
+| **URL** | Paste a link → content extracted (direct + proxy strategies), normalized, and turned into a curriculum |
 
-### Account and data
-- Email/password and Google sign-in
-- Onboarding-driven learner profile
-- Persisted learning paths, modules, progress, and metadata in Supabase
-- Library, dashboard, and settings screens
+### 🎯 Adaptive Learning Profiles
 
-## Tech Stack
+Curricula are tailored based on your individual profile:
 
-- Frontend: React 19, TypeScript, Tailwind CSS, React Router
-- Build tool: Vite
-- AI: Groq API, Google GenAI (for selected flows)
-- Auth + DB: Supabase
-- Code execution: Judge0
-- Visualization: Recharts, jsMind, html2canvas
-- PDF processing: pdfjs-dist
+- **Learning Depth** — Quick Overview · Structured Learning · Deep Mastery
+- **Topic Familiarity** — Beginner · Intermediate · Advanced
+- **User Profile** — Auto-adjusts for school students, college students, or working professionals
 
-## Project Structure
+### 📚 Interactive Learning Interface
 
-```text
+A comprehensive learning dashboard packed with tools for active learning:
+
+- **AI Explanations** — Click any subtopic for an on-demand, in-depth AI-generated explanation
+- **BioDigital 3D Anatomy Viewer** — For biology/medical topics, an embedded interactive 3D anatomical model is automatically matched to the current topic
+- **Curated YouTube Resources** — Topic-relevant videos with **smart timestamp jumping** so you skip directly to where your subtopic is discussed
+- **Multi-language Video Support** — Filter YouTube results by language (14 languages supported including Hindi, Spanish, French, Arabic, Japanese, and more)
+
+### 💻 Integrated Coding Workspace
+
+For programming and CS topics, a full coding environment is built right in:
+
+- **Monaco Editor** — A VS Code-like code editor in the browser
+- **Judge0 Execution Engine** — Write, run, and test code against predefined test cases without leaving the platform
+- **Multi-language Support** — Python, JavaScript, C++, Java, and more
+- **Attempt History Tracking** — Track coding attempts and performance over time
+
+### 📝 AI-Powered Assessments
+
+A robust assessment suite for knowledge validation and active recall:
+
+| Feature | Description |
+|---------|-------------|
+| **Module Quizzes** | AI-generated MCQ and Numerical questions tailored to the current module's content |
+| **Difficulty Levels** | Choose Easy, Medium, or Hard — question complexity adapts accordingly |
+| **Final Quiz** | A cumulative exam that synthesizes content across all modules |
+| **Smart Feedback** | AI-driven, difficulty-aware feedback — identifies knowledge gaps and explains *why* you got answers wrong |
+| **Attempt History** | Full history of quiz attempts with scores, time taken, and per-question review |
+| **Flashcards** | AI-generated flashcards for key concepts — supports flip-to-reveal and practice mode |
+
+### 🤖 Persistent AI Teaching Assistant
+
+A floating chatbot available across the entire platform:
+
+- **Context-Aware** — Knows your course, current module, progress, quiz results, and user profile
+- **Powered by Groq** — Uses `llama-3.3-70b-versatile` for fast, high-quality responses
+- **Persistent Memory** — Chat history saved in Supabase — pick up conversations where you left off
+
+### ✏️ Path Authoring & Visualization
+
+Before committing to a learning path:
+
+- **AI Module Refinement** — Click to have AI add more detail to any module
+- **Add / Remove Modules** — Manually adjust the curriculum structure
+- **Mindmap Export** — Generate and download a visual mindmap of your entire learning path
+- **Duration Estimates** — See estimated time per module and total course length
+
+### 👤 Account & Data Management
+
+- **Authentication** — Email/password and Google OAuth (with PKCE flow)
+- **Onboarding** — Profile-driven learner setup (education level, languages, interests)
+- **Persistent Data** — Learning paths, progress, quiz attempts, chat history, and flashcards stored in Supabase
+- **Library & Dashboard** — View all saved paths, track progress, and resume learning
+- **Settings** — Update profile, preferences, and account details
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 19, TypeScript, Tailwind CSS, React Router (hash-based) |
+| **Build** | Vite 6 |
+| **AI Engine** | Groq API (`llama-3.3-70b-versatile`) — curriculum, quizzes, explanations, chatbot |
+| **AI Fallback** | Google GenAI (`@google/genai`) for selected flows |
+| **Auth & Database** | Supabase (PostgreSQL, Auth, Google OAuth) |
+| **Code Execution** | Judge0 API (sandboxed execution) |
+| **Code Editor** | Monaco Editor (`@monaco-editor/react`) |
+| **3D Visualization** | BioDigital Human API |
+| **Video** | YouTube Data API v3 |
+| **Charts & Mindmaps** | Recharts, jsMind, html2canvas |
+| **PDF Processing** | pdfjs-dist (client-side parsing) |
+| **Icons** | Lucide React |
+
+---
+
+## 📂 Project Structure
+
+```
 modulearn/
-├── App.tsx
-├── index.tsx
+├── App.tsx                          # Root app with routing
+├── index.tsx                        # Entry point
+├── types.ts                         # Shared TypeScript interfaces
+│
 ├── backend/
-│   ├── groqService.ts
-│   ├── pdfLearningPipeline.ts
-│   └── urlLearningPipeline.ts
-├── components/
+│   ├── groqService.ts               # AI curriculum, quiz, explanation, chat generation
+│   ├── pdfLearningPipeline.ts       # PDF → parse → chunk → summarize → curriculum
+│   └── urlLearningPipeline.ts       # URL → extract → normalize → curriculum
+│
 ├── lib/
-│   ├── database.ts
-│   ├── supabase.ts
-│   ├── codingPractice.ts
-│   ├── judge0Service.ts
-│   └── topicTimestampService.ts
-├── pages/
-│   ├── LandingPage.tsx
-│   ├── LoginPage.tsx
-│   ├── SignupPage.tsx
-│   ├── OnboardingPage.tsx
+│   ├── supabase.ts                  # Supabase client initialization
+│   ├── database.ts                  # All database operations (profiles, paths, quizzes, chat)
+│   ├── quizService.ts               # Quiz generation & grading logic
+│   ├── flashcardService.ts          # Flashcard generation & persistence
+│   ├── codingPractice.ts            # Coding challenge setup & language detection
+│   ├── judge0Service.ts             # Judge0 code execution integration
+│   ├── chatbotApi.ts                # Chatbot API layer
+│   ├── chatbotService.ts            # Chatbot context & session management
+│   ├── biodigital.ts                # BioDigital topic detection & model mapping
+│   ├── topicTimestampService.ts     # YouTube timestamp jumping service
+│   ├── durationEstimate.ts          # Module duration estimation
+│   └── timestamp*.ts                # Timestamp config, diagnostics, dev tools
+│
+├── components/
+│   ├── Navbar.tsx                   # Navigation bar
+│   ├── Footer.tsx                   # Footer
+│   ├── BioDigitalViewerPanel.tsx    # 3D anatomy viewer component
+│   ├── Illustrations.tsx            # SVG illustrations
 │   └── app/
-│       ├── Dashboard.tsx
-│       ├── CreatePath.tsx
-│       ├── StructurePath.tsx
-│       ├── LearningInterface.tsx
-│       ├── LibraryPage.tsx
-│       ├── ProgressPage.tsx
-│       └── SettingsPage.tsx
-└── package.json
+│       ├── AppLayout.tsx            # Authenticated app shell with sidebar
+│       ├── Chatbot.tsx              # Floating AI chatbot component
+│       └── ChatbotContext.tsx       # Chatbot React context provider
+│
+├── pages/
+│   ├── LandingPage.tsx              # Public landing page
+│   ├── FeaturesPage.tsx             # Features showcase
+│   ├── LoginPage.tsx                # Login (email + Google OAuth)
+│   ├── SignupPage.tsx               # Registration
+│   ├── OnboardingPage.tsx           # Profile setup wizard
+│   └── app/
+│       ├── Dashboard.tsx            # User dashboard with stats
+│       ├── CreatePath.tsx           # Multi-source path creation
+│       ├── StructurePath.tsx        # Curriculum preview & editing
+│       ├── LearningInterface.tsx    # Full learning experience (3000+ lines)
+│       ├── LibraryPage.tsx          # Saved paths library
+│       ├── ProgressPage.tsx         # Progress tracking & analytics
+│       └── SettingsPage.tsx         # User settings & preferences
+│
+├── scripts/
+│   ├── create_flashcards_table.sql  # Supabase flashcards table setup
+│   └── check-claude-keys.mjs       # API key validation utility
+│
+└── img/                             # Screenshot assets
 ```
 
-## Quick Start
+---
 
-### 1) Prerequisites
+## 🚀 Quick Start
 
-- Node.js 18+
-- npm
+### Prerequisites
 
-### 2) Install
+- **Node.js** 18+ and **npm**
+- A free [Groq API key](https://console.groq.com/) (required for AI features)
+- A [Supabase](https://supabase.com/) project (required for auth + data persistence)
+
+### 1. Clone & Install
 
 ```bash
 git clone https://github.com/LakraAnshul/ModuLearn.git
@@ -128,127 +209,126 @@ cd ModuLearn
 npm install
 ```
 
-### 3) Configure environment
+### 2. Configure Environment
 
-Create `.env` in project root.
+Create a `.env` file in the project root (see `.env.example` for a template):
 
 ```env
-# Required for curriculum generation
-VITE_GROQ_API_KEY=your_groq_key
+# ── Required ────────────────────────────────────────────
+VITE_GROQ_API_KEY=your_groq_api_key        # AI generation (curriculum, quizzes, chat)
+VITE_YOUTUBE_API_KEY=your_youtube_api_key   # YouTube video recommendations
 
-# Required for YouTube recommendations
-VITE_YOUTUBE_API_KEY=your_youtube_api_key
+# Supabase (auth + database)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key
 
-# Required for BioDigital 3D viewer
-VITE_BIODIGITAL_DEVELOPER_KEY=your_biodigital_developer_key
-
-# Optional BioDigital tuning
+# ── Optional ────────────────────────────────────────────
+# BioDigital 3D viewer
+VITE_BIODIGITAL_DEVELOPER_KEY=your_biodigital_key
 VITE_BIODIGITAL_VIEWER_BASE_URL=https://human.biodigital.com/viewer/
 VITE_BIODIGITAL_DEFAULT_MODEL_ID=production/maleAdult/beating_heart_02
-# JSON object string: keyword -> modelId
 VITE_BIODIGITAL_TOPIC_MODEL_MAP={"heart":"production/maleAdult/beating_heart_02"}
 
-# Optional Gemini usage in selected flows
+# Google GenAI (fallback flows)
 VITE_GEMINI_API_KEY=your_gemini_key
-# or
-VITE_GOOGLE_API_KEY=your_google_api_key
 
-# Optional Judge0 overrides (if not using default public CE endpoint)
+# Judge0 code execution (defaults to public CE endpoint)
 VITE_JUDGE0_API_URL=https://ce.judge0.com
 VITE_RAPIDAPI_KEY=your_rapidapi_key
 VITE_RAPIDAPI_HOST=judge0-ce.p.rapidapi.com
-
-# Supabase credentials currently used by the client initializer
-SUPABASE_URL=https://your-project-ref.supabase.co
-SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-Notes:
-- The current Supabase initializer reads `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
-- If those are missing, the code can fall back to hardcoded values in `lib/supabase.ts`.
-- BioDigital viewer runs in an iframe and requires a valid developer key (`dk`) from your BioDigital app settings.
-
-### 4) Run
+### 3. Run
 
 ```bash
 npm run dev
 ```
 
-App runs at `http://localhost:5173` by default.
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-## Available Scripts
+---
 
-```bash
-npm run dev      # Start dev server
-npm run build    # Production build
-npm run preview  # Preview production build
-```
+## 📜 Available Scripts
 
-## Supabase Setup Checklist
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start the development server |
+| `npm run build` | Create a production build |
+| `npm run preview` | Preview the production build locally |
 
-### Auth URL configuration
+---
 
-If Google OAuth redirects to localhost in production, verify these in Supabase Auth URL settings:
+## 🗄️ Supabase Setup
 
-- Site URL: your production URL (for example `https://modulearn-9pq2.onrender.com`)
-- Redirect URLs should include:
-  - production origin
-  - production origin with trailing slash
-  - localhost for local testing
+### Database Tables
 
-### Coding attempts table
+The following tables need to be set up in your Supabase project:
 
-Run SQL from `SUPABASE_CODING_ATTEMPTS_SETUP.md` to enable coding attempt history.
+1. **Profiles** — User profiles (name, education level, languages, etc.)
+2. **Learning Paths** — Saved curricula with modules, progress, and metadata
+3. **Quiz Attempts** — Quiz scores, answers, and feedback history
+4. **Chat Sessions** — Chatbot conversation history
+5. **Flashcards** — Generated flashcard sets per module
+6. **Coding Attempts** — Code execution history and results
 
-## Deployment (Render)
+> See `scripts/create_flashcards_table.sql` and `SUPABASE_CODING_ATTEMPTS_SETUP.md` for SQL setup scripts.
 
-For a Render static site deployment:
+### Auth Configuration
 
-- Build Command: `npm run build`
-- Publish Directory: `dist`
+For Google OAuth to work correctly:
 
-`./dist` is also valid, but `dist` is preferred.
+1. **Site URL** — Set to your production URL (e.g., `https://modulearn-9pq2.onrender.com`)
+2. **Redirect URLs** — Include:
+   - Your production origin (with and without trailing slash)
+   - `http://localhost:5173` for local development
 
-Because the app uses hash routing, deep-link rewrite rules are generally not required.
+---
 
-## Important Security Notes
+## 🌐 Deployment
 
-- Never commit real API keys or secrets.
-- Rotate exposed keys immediately if leaked.
-- Keep `.env` local and private.
+### Render (Static Site)
 
-## Supporting Docs In Repo
+| Setting | Value |
+|---------|-------|
+| Build Command | `npm run build` |
+| Publish Directory | `dist` |
 
-- `SETUP_GROQ.md`
-- `ENV_SETUP_GUIDE.md`
-- `TOPIC_TIMESTAMP_SETUP.md`
-- `SUPABASE_CODING_ATTEMPTS_SETUP.md`
-- `IMPLEMENTATION_SUMMARY.md`
-- `CHANGES_SUMMARY.md`
+Since the app uses **hash-based routing** (`HashRouter`), no server-side rewrite rules are needed for deep links.
 
-## Screenshots
+---
 
-### Landing Page
-![Landing Page](img/landingpage.png)
+## 🔐 Security
 
-### Dashboard
-![Dashboard](img/dashboard.png)
+- **Never** commit real API keys or secrets to version control
+- `.env` is included in `.gitignore` by default
+- Rotate any exposed keys immediately
+- API keys are only used client-side for direct API calls — no secrets are stored in the codebase
 
-### Path Generator
-![Path Generator](img/path%20generator%20page.png)
+---
 
-### Generated Path Example
-![Generated Path Example](img/generated%20path%20example.png)
+## 📖 Documentation
 
-### Learning Journey
-![Learning Journey](img/learning%20journey%20page.png)
+The repository includes detailed setup and implementation guides:
 
-### User Profiling
-![User Profiling](img/user%20profiling.png)
+| Document | Purpose |
+|----------|---------|
+| `SETUP_GROQ.md` | 5-minute Groq API setup guide |
+| `ENV_SETUP_GUIDE.md` | Comprehensive environment configuration |
+| `TOPIC_TIMESTAMP_SETUP.md` | YouTube timestamp feature setup |
+| `SUPABASE_CODING_ATTEMPTS_SETUP.md` | Coding attempts table SQL |
+| `IMPLEMENTATION_SUMMARY.md` | Architecture & design decisions |
+| `FEATURE_COMPLETE.md` | Detailed feature overview |
+| `CHANGES_SUMMARY.md` | Implementation changelog |
+| `backend/README.md` | Backend service API reference |
 
-### User Profiling (Variant)
-![User Profiling 2](img/user%20profiling%202.png)
+---
 
-## License
+## 🤝 Contributing
 
-MIT - see `LICENSE`.
+Contributions are welcome! Feel free to open issues or submit pull requests.
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
