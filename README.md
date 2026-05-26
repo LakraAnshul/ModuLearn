@@ -24,6 +24,10 @@ This project has evolved beyond simple topic-based generation. Current implement
 - Interactive BioDigital 3D anatomy viewer for biology topics
 - Topic-aware YouTube recommendations with timestamp jumping
 - Built-in coding practice and test execution using Judge0
+- AI-powered MCQ and Numerical quizzes for individual modules and comprehensive Final Quizzes
+- Flashcard generation for active recall and revision
+- Advanced difficulty-aware quiz feedback system
+- Context-aware persistent AI chatbot powered by Groq
 - Path structuring, AI module refinement, and mindmap export
 - Saved path library with progress persistence in Supabase
 
@@ -48,6 +52,11 @@ This project has evolved beyond simple topic-based generation. Current implement
 - YouTube learning resources with topic timestamp support
 - Coding practice workspace with Monaco editor
 - Code run and test-case validation via Judge0
+- AI-generated MCQ and Numerical Quizzes to test knowledge
+- Flashcards for easy review and memorization
+- Cumulative Final Quizzes that synthesize all course content
+- AI-driven, difficulty-aware feedback for quiz performance
+- Floating AI chatbot that provides context-aware assistance throughout the platform
 - Attempt history tracking per module
 
 ### Authoring and visualization

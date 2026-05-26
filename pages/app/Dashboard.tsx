@@ -33,6 +33,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     async function loadProfile() {
       try {
+        await db.updateStreak();
         const [profileData, learningPaths] = await Promise.all([
           db.getProfile(),
           db.listUserLearningPaths(8),
@@ -89,12 +90,12 @@ const Dashboard: React.FC = () => {
         <div className="bg-white dark:bg-zinc-900 p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm flex flex-col justify-between transition-colors duration-200">
           <div>
             <span className="text-peach font-bold uppercase tracking-widest text-[10px] block mb-4">Streak</span>
-            <h3 className="text-4xl font-black mb-1 dark:text-white">14</h3>
+            <h3 className="text-4xl font-black mb-1 dark:text-white">{profile?.streakCount || 0}</h3>
             <p className="text-zinc-500 dark:text-zinc-400 text-sm font-semibold">Days consecutive learning</p>
           </div>
           <div className="mt-8 flex gap-1">
-             {[1,1,1,1,1,0,1].map((s, i) => (
-               <div key={i} className={`flex-1 h-1.5 rounded-full ${s ? 'bg-peach' : 'bg-zinc-100 dark:bg-zinc-800'}`} />
+             {[...Array(7)].map((_, i) => (
+               <div key={i} className={`flex-1 h-1.5 rounded-full ${i < Math.min(profile?.streakCount || 0, 7) ? 'bg-peach' : 'bg-zinc-100 dark:bg-zinc-800'}`} />
              ))}
           </div>
         </div>

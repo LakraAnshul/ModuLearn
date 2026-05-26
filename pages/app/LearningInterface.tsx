@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { 
   ArrowLeft, 
@@ -21,13 +21,15 @@ import {
   Star,
   RotateCcw,
   Zap,
-  ChevronDown
+  ChevronDown,
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { GeneratedCurriculum, CurriculumModule, LearningPreferences } from '../../backend/groqService.ts';
 import { groqService } from '../../backend/groqService.ts';
 import { db, UserProfile, QuizAttemptDbRecord } from '../../lib/database.ts';
-import { quizService, QuizQuestion, QuizDifficulty, QUESTION_COUNTS, ESTIMATED_MINUTES } from '../../lib/quizService.ts';
+import { quizService, QuizQuestion, QuizDifficulty, QuizType, QUESTION_COUNTS, ESTIMATED_MINUTES, FINAL_QUESTION_COUNTS, FINAL_ESTIMATED_MINUTES } from '../../lib/quizService.ts';
 import { findTopicTimestamp, TopicTimestampResult, formatSeconds } from '../../lib/topicTimestampService.ts';
 import {
   detectCodingContext,
@@ -45,7 +47,9 @@ import {
   RunTestSuiteResult,
 } from '../../lib/judge0Service.ts';
 import BioDigitalViewerPanel from '../../components/BioDigitalViewerPanel.tsx';
+import { isLikelyBiologyTopic } from '../../lib/biodigital.ts';
 import { useChatbotContext } from '../../components/app/ChatbotContext.tsx';
+import { flashcardService, FlashcardItem } from '../../lib/flashcardService.ts';
 
 interface LocationState {
   curriculum: GeneratedCurriculum;
@@ -387,7 +391,9 @@ const LearningInterface: React.FC = () => {
 
   // ─── Quiz State ──────────────────────────────────────────────────────────
   type QuizPhase = 'idle' | 'difficulty-select' | 'generating' | 'in-quiz' | 'results' | 'review';
+  type QuizScope = 'module' | 'final';
   const [quizPhase, setQuizPhase] = useState<QuizPhase>('idle');
+  const [quizScope, setQuizScope] = useState<QuizScope>('module');
   const [quizDifficulty, setQuizDifficulty] = useState<QuizDifficulty>('medium');
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [quizCurrentIndex, setQuizCurrentIndex] = useState(0);
@@ -400,6 +406,39 @@ const LearningInterface: React.FC = () => {
   const [quizHistoryLoading, setQuizHistoryLoading] = useState<Record<string, boolean>>({});
   const [quizReviewAttempt, setQuizReviewAttempt] = useState<QuizAttemptDbRecord | null>(null);
   const [quizReviewIndex, setQuizReviewIndex] = useState(0);
+  const [quizFeedback, setQuizFeedback] = useState<string | null>(null);
+  const [quizFeedbackLoading, setQuizFeedbackLoading] = useState(false);
+  const [quizStartTime, setQuizStartTime] = useState<number | null>(null);
+  const [quizTimeTaken, setQuizTimeTaken] = useState<number | null>(null);
+  const [quizElapsedSeconds, setQuizElapsedSeconds] = useState(0);
+  const [quizType, setQuizType] = useState<QuizType>('mixed');
+
+  const currentModule = modules[activeModule];
+
+  const isMathPhysicsContext = React.useMemo(() => {
+    if (!curriculum) return false;
+    const corpus = (
+      curriculum.title + ' ' + 
+      (quizScope === 'module' && currentModule ? (currentModule.title + ' ' + (currentModule.subtopics || []).join(' ')) : modules.map(m => m.title).join(' '))
+    ).toLowerCase();
+    
+    const signals = [
+      'math', 'physics', 'calculus', 'algebra', 'mechanics', 'kinematics', 
+      'thermodynamics', 'geometry', 'trigonometry', 'statistics', 'probability',
+      'equation', 'numerical', 'computation', 'optics', 'electromagnetism'
+    ];
+    return signals.some(w => corpus.includes(w));
+  }, [curriculum, currentModule, modules, quizScope]);
+
+  // ─── Flashcard State ────────────────────────────────────────────────────────
+  const [flashcardsByModule, setFlashcardsByModule] = useState<Record<string, FlashcardItem[]>>({});
+  const [flashcardsLoading, setFlashcardsLoading] = useState<Record<string, boolean>>({});
+  const [flashcardsError, setFlashcardsError] = useState<Record<string, string>>({});
+  const [flashcardsLoadedFromDb, setFlashcardsLoadedFromDb] = useState<Record<string, boolean>>({});
+  const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
+  const [flashcardFlipped, setFlashcardFlipped] = useState(false);
+  const [flashcardPracticeMode, setFlashcardPracticeMode] = useState(false);
+  const flashcardPracticeRef = useRef<HTMLDivElement>(null);
 
   const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
 
@@ -726,7 +765,6 @@ const LearningInterface: React.FC = () => {
     setTopicExplanation(null);
 
     try {
-      const currentModule = modules[activeModule];
       const explanation = await groqService.explainTopic(
         topicName,
         currentModule?.title || 'Module',
@@ -985,7 +1023,6 @@ const LearningInterface: React.FC = () => {
 
   // Compute currentCacheKey outside conditional to use in function above
   const activeLanguageCodes = (selectedLanguageCodes.length ? selectedLanguageCodes : ['en']).slice(0, 2);
-  const currentModule = modules[activeModule];
   const currentCacheKey = currentModule ? buildVideoCacheKey(currentModule.id, activeLanguageCodes, selectedVideoDuration) : '';
   const currentVideos = currentModule ? videosByModule[currentCacheKey] || [] : [];
   const codingContext = currentModule && curriculum
@@ -1455,15 +1492,135 @@ const LearningInterface: React.FC = () => {
     };
   }, [selectedTopic, currentCacheKey, currentModule, currentVideos]);
 
+  // ─── Flashcard Derived State ──────────────────────────────────────────────
+  const currentFlashcards: FlashcardItem[] = currentModule ? (flashcardsByModule[currentModule.id] || []) : [];
+  const isFlashcardsLoading = currentModule ? !!flashcardsLoading[currentModule.id] : false;
+  const flashcardErrorMsg = currentModule ? (flashcardsError[currentModule.id] || '') : '';
+
+  // ─── Load flashcards from Supabase when module changes ────────────────────
+  useEffect(() => {
+    if (!savedPathId || !currentModule) return;
+    const moduleId = currentModule.id;
+
+    // Already loaded from DB or already in cache
+    if (flashcardsLoadedFromDb[moduleId] || flashcardsByModule[moduleId]) return;
+
+    const loadFlashcards = async () => {
+      try {
+        const cards = await db.getFlashcards(savedPathId, moduleId);
+        if (cards && cards.length > 0) {
+          setFlashcardsByModule(prev => ({ ...prev, [moduleId]: cards }));
+        }
+      } catch (err) {
+        console.warn('Failed to load flashcards from Supabase:', err);
+      } finally {
+        setFlashcardsLoadedFromDb(prev => ({ ...prev, [moduleId]: true }));
+      }
+    };
+
+    loadFlashcards();
+  }, [savedPathId, currentModule?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset card index and flip state when module changes
+  useEffect(() => {
+    setCurrentFlashcardIndex(0);
+    setFlashcardFlipped(false);
+  }, [activeModule]);
+
+  // Keyboard support for practice mode
+  useEffect(() => {
+    if (!flashcardPracticeMode) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setFlashcardFlipped(false);
+        setCurrentFlashcardIndex(prev => Math.max(0, prev - 1));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setFlashcardFlipped(false);
+        setCurrentFlashcardIndex(prev => Math.min(currentFlashcards.length - 1, prev + 1));
+      } else if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        setFlashcardFlipped(prev => !prev);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setFlashcardPracticeMode(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [flashcardPracticeMode, currentFlashcards.length]);
+
+  const handleGenerateFlashcards = useCallback(async () => {
+    if (!curriculum || !currentModule) return;
+    const moduleId = currentModule.id;
+
+    setFlashcardsLoading(prev => ({ ...prev, [moduleId]: true }));
+    setFlashcardsError(prev => ({ ...prev, [moduleId]: '' }));
+
+    try {
+      const cards = await flashcardService.generateFlashcards(
+        currentModule.title,
+        currentModule.subtopics || [],
+        curriculum.title,
+        curriculum.educationLevel || 'college',
+      );
+
+      setFlashcardsByModule(prev => ({ ...prev, [moduleId]: cards }));
+      setCurrentFlashcardIndex(0);
+      setFlashcardFlipped(false);
+
+      // Persist to Supabase
+      if (savedPathId) {
+        db.saveFlashcards(savedPathId, moduleId, cards).catch(err => {
+          console.warn('Failed to persist flashcards to Supabase:', err);
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to generate flashcards:', err);
+      setFlashcardsError(prev => ({
+        ...prev,
+        [moduleId]: err?.message || 'Failed to generate flashcards. Please try again.',
+      }));
+    } finally {
+      setFlashcardsLoading(prev => ({ ...prev, [moduleId]: false }));
+    }
+  }, [curriculum, currentModule, savedPathId]);
+
+  const handleFlashcardPrev = useCallback(() => {
+    setFlashcardFlipped(false);
+    setCurrentFlashcardIndex(prev => Math.max(0, prev - 1));
+  }, []);
+
+  const handleFlashcardNext = useCallback(() => {
+    setFlashcardFlipped(false);
+    setCurrentFlashcardIndex(prev => Math.min(currentFlashcards.length - 1, prev + 1));
+  }, [currentFlashcards.length]);
+
+  // ─── Quiz Timer ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (quizPhase === 'in-quiz' && quizStartTime !== null) {
+      interval = setInterval(() => {
+        setQuizElapsedSeconds(Math.floor((Date.now() - quizStartTime) / 1000));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [quizPhase, quizStartTime]);
+
   // ─── Quiz Handlers ────────────────────────────────────────────────────────
 
-  const handleOpenQuizDifficultySelect = useCallback(() => {
+  const handleOpenQuizDifficultySelect = useCallback((scope: QuizScope) => {
+    setQuizScope(scope);
     setQuizPhase('difficulty-select');
     setQuizError('');
   }, []);
 
   const handleStartQuiz = useCallback(async () => {
-    if (!currentModule || !curriculum) return;
+    if (!curriculum) return;
+    if (quizScope === 'module' && !currentModule) return;
     setQuizPhase('generating');
     setQuizGenerating(true);
     setQuizError('');
@@ -1472,15 +1629,31 @@ const LearningInterface: React.FC = () => {
     setQuizSelectedOption(null);
     setQuizAnswered(false);
     setQuizUserAnswers([]);
+    setQuizFeedback(null);
 
     try {
-      const questions = await quizService.generateQuestions(
-        currentModule.title,
-        currentModule.subtopics || [],
-        curriculum.title,
-        quizDifficulty,
-      );
+      let questions;
+      if (quizScope === 'module') {
+        questions = await quizService.generateQuestions(
+          currentModule!.title,
+          currentModule!.subtopics || [],
+          curriculum.title,
+          quizDifficulty,
+          quizType,
+        );
+      } else {
+        const modulesForQuiz = modules.map(m => ({ title: m.title, subtopics: m.subtopics || [] }));
+        questions = await quizService.generateFinalQuestions(
+          modulesForQuiz,
+          curriculum.title,
+          quizDifficulty,
+          quizType,
+        );
+      }
       setQuizQuestions(questions);
+      setQuizStartTime(Date.now());
+      setQuizTimeTaken(null);
+      setQuizElapsedSeconds(0);
       setQuizPhase('in-quiz');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to generate quiz.';
@@ -1489,7 +1662,7 @@ const LearningInterface: React.FC = () => {
     } finally {
       setQuizGenerating(false);
     }
-  }, [currentModule, curriculum, quizDifficulty]);
+  }, [currentModule, curriculum, quizDifficulty, quizScope, modules, quizType]);
 
   const handleSelectOption = useCallback((optionIndex: number) => {
     if (quizAnswered) return;
@@ -1510,32 +1683,58 @@ const LearningInterface: React.FC = () => {
     } else {
       // Quiz finished — go to results
       setQuizPhase('results');
+      
+      const score = quizUserAnswers.filter(
+        (ans, i) => ans === quizQuestions[i]?.correctIndex
+      ).length;
+      const total = quizQuestions.length;
+
+      // Generate feedback asynchronously
+      setQuizFeedbackLoading(true);
+      const moduleTitle = quizScope === 'module' ? currentModule?.title : undefined;
+      const timeTaken = quizStartTime ? Math.floor((Date.now() - quizStartTime) / 1000) : 0;
+      setQuizTimeTaken(timeTaken);
+      setQuizStartTime(null);
+
+      quizService.generateFeedback(score, total, quizDifficulty, quizQuestions, quizUserAnswers, moduleTitle, timeTaken)
+        .then(feedback => setQuizFeedback(feedback))
+        .catch(err => {
+          console.error('Failed to generate feedback:', err);
+          setQuizFeedback("Unable to generate feedback at this time.");
+        })
+        .finally(() => setQuizFeedbackLoading(false));
+
       // Persist attempt
-      if (currentModule && savedPathId) {
-        const score = quizUserAnswers.filter(
-          (ans, i) => ans === quizQuestions[i]?.correctIndex
-        ).length;
+      const dbModuleId = quizScope === 'module' ? currentModule?.id : 'final';
+      if (dbModuleId && savedPathId) {
         db.saveQuizAttempt({
           learningPathId: savedPathId,
-          moduleId: currentModule.id,
+          moduleId: dbModuleId,
           difficulty: quizDifficulty,
           score,
           total: quizQuestions.length,
           questions: { questions: quizQuestions, userAnswers: quizUserAnswers },
         }).then(() => {
           // Refresh history
-          if (savedPathId && currentModule) {
+          if (quizScope === 'module' && currentModule) {
             db.listQuizAttempts(savedPathId, currentModule.id, 5).then(records => {
               setQuizAttemptHistory(prev => ({
                 ...prev,
                 [currentModule.id]: records,
               }));
             }).catch(() => {/* silent */});
+          } else if (quizScope === 'final') {
+             db.listQuizAttempts(savedPathId, 'final', 5).then(records => {
+              setQuizAttemptHistory(prev => ({
+                ...prev,
+                'final': records,
+              }));
+            }).catch(() => {/* silent */});
           }
         }).catch(err => console.warn('Failed to save quiz attempt:', err));
       }
     }
-  }, [quizCurrentIndex, quizQuestions, quizUserAnswers, currentModule, savedPathId, quizDifficulty]);
+  }, [quizCurrentIndex, quizQuestions, quizUserAnswers, currentModule, savedPathId, quizDifficulty, quizScope, quizStartTime]);
 
   const handleRetakeQuiz = useCallback(() => {
     setQuizPhase('difficulty-select');
@@ -1562,18 +1761,30 @@ const LearningInterface: React.FC = () => {
   useEffect(() => {
     if (!savedPathId || !currentModule) return;
     const moduleId = currentModule.id;
-    if (quizHistoryLoading[moduleId] || quizAttemptHistory[moduleId]) return;
+    if (!quizHistoryLoading[moduleId] && !quizAttemptHistory[moduleId]) {
+      setQuizHistoryLoading(prev => ({ ...prev, [moduleId]: true }));
+      db.listQuizAttempts(savedPathId, moduleId, 5)
+        .then(records => {
+          setQuizAttemptHistory(prev => ({ ...prev, [moduleId]: records }));
+        })
+        .catch(() => {/* silent */})
+        .finally(() => {
+          setQuizHistoryLoading(prev => ({ ...prev, [moduleId]: false }));
+        });
+    }
 
-    setQuizHistoryLoading(prev => ({ ...prev, [moduleId]: true }));
-    db.listQuizAttempts(savedPathId, moduleId, 5)
-      .then(records => {
-        setQuizAttemptHistory(prev => ({ ...prev, [moduleId]: records }));
-      })
-      .catch(() => {/* silent */})
-      .finally(() => {
-        setQuizHistoryLoading(prev => ({ ...prev, [moduleId]: false }));
-      });
-  }, [savedPathId, currentModule]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (activeModule === modules.length - 1 && !quizAttemptHistory['final'] && !quizHistoryLoading['final']) {
+      setQuizHistoryLoading(prev => ({ ...prev, ['final']: true }));
+      db.listQuizAttempts(savedPathId, 'final', 5)
+        .then(records => {
+          setQuizAttemptHistory(prev => ({ ...prev, ['final']: records }));
+        })
+        .catch(() => {/* silent */})
+        .finally(() => {
+          setQuizHistoryLoading(prev => ({ ...prev, ['final']: false }));
+        });
+    }
+  }, [savedPathId, currentModule, activeModule]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) {
 
@@ -2088,8 +2299,7 @@ const LearningInterface: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-                  <div className="xl:col-span-3">
+                <div>
                     {explanationLoading ? (
                       <div className="flex items-center justify-center gap-3 py-8">
                         <Loader2 className="animate-spin text-peach" size={24} />
@@ -2100,15 +2310,18 @@ const LearningInterface: React.FC = () => {
                         <div className="space-y-1">{renderStructuredExplanation(topicExplanation)}</div>
                       </div>
                     ) : null}
-                  </div>
-                  <div className="xl:col-span-2">
+                </div>
+
+                {/* 3D Anatomy Viewer — only for biology-related topics */}
+                {isLikelyBiologyTopic(selectedTopic, currentModule?.title, curriculum?.title) && (
+                  <div className="mt-8">
                     <BioDigitalViewerPanel
                       topic={selectedTopic}
                       moduleTitle={currentModule?.title || ''}
                       curriculumTitle={curriculum?.title || ''}
                     />
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -2154,16 +2367,134 @@ const LearningInterface: React.FC = () => {
       {/* Tools Panel - Collapsible on smaller screens */}
       <aside className="w-96 bg-zinc-50 dark:bg-zinc-900 border-l border-zinc-100 dark:border-zinc-800 p-6 lg:p-8 flex flex-col gap-6 overflow-y-auto hidden xl:flex max-w-[384px]">
         <div className="bg-white dark:bg-zinc-800 p-6 lg:p-8 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-700 transition-colors duration-200">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-5">
             <h3 className="font-bold text-base lg:text-lg flex items-center gap-2 dark:text-white">
               <Layers size={18} className="text-peach" /> Flashcards
             </h3>
-            <span className="bg-zinc-100 dark:bg-zinc-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest text-zinc-400 dark:text-zinc-500">12</span>
+            <div className="flex items-center gap-2">
+              {currentFlashcards.length > 0 && (
+                <button
+                  onClick={handleGenerateFlashcards}
+                  disabled={isFlashcardsLoading}
+                  title="Regenerate flashcards"
+                  className="text-zinc-400 hover:text-peach transition-colors disabled:opacity-40"
+                >
+                  <RefreshCw size={14} className={isFlashcardsLoading ? 'animate-spin' : ''} />
+                </button>
+              )}
+              <span className="bg-zinc-100 dark:bg-zinc-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+                {currentFlashcards.length > 0 ? currentFlashcards.length : '—'}
+              </span>
+            </div>
           </div>
-          <div className="aspect-[4/3] bg-zinc-100 dark:bg-zinc-700 rounded-xl flex items-center justify-center p-6 text-center group cursor-pointer hover:bg-peach dark:hover:bg-peach transition-all">
-            <p className="text-sm font-bold group-hover:text-white transition-colors dark:text-white">What is the primary difference between Props and State?</p>
-          </div>
-          <button className="w-full mt-4 text-xs font-black uppercase tracking-widest text-peach hover:underline">Practice Set</button>
+
+          {/* State: Loading */}
+          {isFlashcardsLoading && (
+            <div className="aspect-[4/3] bg-gradient-to-br from-peach/5 to-orange-50 dark:from-peach/10 dark:to-zinc-700 rounded-xl flex flex-col items-center justify-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-peach/10 flex items-center justify-center">
+                <Loader2 size={24} className="text-peach animate-spin" />
+              </div>
+              <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400">Generating flashcards...</p>
+            </div>
+          )}
+
+          {/* State: Error */}
+          {!isFlashcardsLoading && flashcardErrorMsg && (
+            <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 mb-3">
+              <p className="text-xs text-red-600 dark:text-red-400">{flashcardErrorMsg}</p>
+              <button
+                onClick={handleGenerateFlashcards}
+                className="mt-2 text-xs font-bold text-peach hover:underline"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* State: No cards yet — generate button */}
+          {!isFlashcardsLoading && !flashcardErrorMsg && currentFlashcards.length === 0 && (
+            <button
+              onClick={handleGenerateFlashcards}
+              className="w-full aspect-[4/3] rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-700 hover:border-peach dark:hover:border-peach transition-all flex flex-col items-center justify-center gap-3 group cursor-pointer"
+            >
+              <div className="w-12 h-12 rounded-full bg-peach/10 group-hover:bg-peach/20 flex items-center justify-center transition-colors">
+                <Sparkles size={22} className="text-peach" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-bold text-zinc-700 dark:text-zinc-200 group-hover:text-peach transition-colors">Generate Flashcards</p>
+                <p className="text-[10px] text-zinc-400 mt-1">AI-powered • 10–15 cards</p>
+              </div>
+            </button>
+          )}
+
+          {/* State: Cards loaded — interactive viewer */}
+          {!isFlashcardsLoading && currentFlashcards.length > 0 && (() => {
+            const card = currentFlashcards[Math.min(currentFlashcardIndex, currentFlashcards.length - 1)];
+            return (
+              <>
+                {/* Card with flip */}
+                <div
+                  className="aspect-[4/3] perspective-[600px] cursor-pointer mb-3"
+                  onClick={() => setFlashcardFlipped(prev => !prev)}
+                >
+                  <div
+                    className="relative w-full h-full transition-transform duration-500"
+                    style={{
+                      transformStyle: 'preserve-3d',
+                      transform: flashcardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                    }}
+                  >
+                    {/* Front */}
+                    <div
+                      className="absolute inset-0 rounded-xl bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-700 dark:to-zinc-750 flex items-center justify-center p-5 text-center border border-zinc-200 dark:border-zinc-600 shadow-inner"
+                      style={{ backfaceVisibility: 'hidden' }}
+                    >
+                      <p className="text-sm font-bold text-zinc-800 dark:text-white leading-relaxed">{card.front}</p>
+                    </div>
+                    {/* Back */}
+                    <div
+                      className="absolute inset-0 rounded-xl bg-gradient-to-br from-peach/10 to-orange-50 dark:from-peach/20 dark:to-zinc-800 flex items-center justify-center p-5 text-center border border-peach/30 dark:border-peach/40 shadow-inner"
+                      style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                    >
+                      <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">{card.back}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Navigation */}
+                <div className="flex items-center justify-between mb-3">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleFlashcardPrev(); }}
+                    disabled={currentFlashcardIndex === 0}
+                    className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
+                    {currentFlashcardIndex + 1} / {currentFlashcards.length}
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleFlashcardNext(); }}
+                    disabled={currentFlashcardIndex >= currentFlashcards.length - 1}
+                    className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+
+                {/* Hint */}
+                <p className="text-[10px] text-center text-zinc-400 mb-3">Click card to flip</p>
+
+                {/* Practice button */}
+                <button
+                  onClick={() => { setCurrentFlashcardIndex(0); setFlashcardFlipped(false); setFlashcardPracticeMode(true); }}
+                  className="w-full text-xs font-black uppercase tracking-widest text-peach hover:underline"
+                >
+                  Practice Set
+                </button>
+              </>
+            );
+          })()}
         </div>
 
         <div className="bg-white dark:bg-zinc-800 p-6 lg:p-8 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-700 transition-colors duration-200">
@@ -2196,12 +2527,23 @@ const LearningInterface: React.FC = () => {
 
         {/* Take Module Quiz Button */}
         <button
-          onClick={handleOpenQuizDifficultySelect}
+          onClick={() => handleOpenQuizDifficultySelect('module')}
           className="w-full bg-peach text-white py-4 lg:py-5 rounded-xl font-bold shadow-lg shadow-peach/20 hover:opacity-90 transition-all text-sm lg:text-base flex items-center justify-center gap-2"
         >
           <Brain size={18} />
           Take Module Quiz
         </button>
+
+        {/* Final Course Quiz Button */}
+        {activeModule === modules.length - 1 && (
+          <button
+            onClick={() => handleOpenQuizDifficultySelect('final')}
+            className="w-full mt-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-4 lg:py-5 rounded-xl font-bold shadow-lg hover:opacity-90 transition-all text-sm lg:text-base flex items-center justify-center gap-2"
+          >
+            <Trophy size={18} />
+            Take Final Course Quiz
+          </button>
+        )}
 
         {/* Previous Quiz Attempts */}
         {currentModule && (
@@ -2216,6 +2558,46 @@ const LearningInterface: React.FC = () => {
             ) : (
               <div className="space-y-2">
                 {(quizAttemptHistory[currentModule.id] || []).map((attempt, i) => {
+                  const pct = attempt.total > 0 ? Math.round((attempt.score / attempt.total) * 100) : 0;
+                  const diffColor = attempt.difficulty === 'easy' ? 'text-emerald-500' : attempt.difficulty === 'medium' ? 'text-amber-500' : 'text-red-500';
+                  const diffBg = attempt.difficulty === 'easy' ? 'bg-emerald-50 dark:bg-emerald-900/20' : attempt.difficulty === 'medium' ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-red-50 dark:bg-red-900/20';
+                  return (
+                    <div key={attempt.id || i} className="rounded-lg border border-zinc-100 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-3 py-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${diffBg} ${diffColor}`}>{attempt.difficulty}</span>
+                        <span className={`text-xs font-bold ${pct >= 70 ? 'text-emerald-500' : 'text-amber-500'}`}>{pct}%</span>
+                      </div>
+                      <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{attempt.score}/{attempt.total} correct</p>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">{new Date(attempt.createdAt).toLocaleDateString()}</p>
+                      {attempt.questions && attempt.questions.length > 0 && (
+                        <button
+                          onClick={() => handleOpenReview(attempt)}
+                          className="mt-2 w-full text-[10px] font-bold uppercase tracking-widest text-peach hover:underline text-left flex items-center gap-1"
+                        >
+                          <BookOpen size={10} /> Review Answers
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Final Quiz Attempts */}
+        {activeModule === modules.length - 1 && (
+          <div className="bg-white dark:bg-zinc-800 p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-700 mt-2">
+            <h3 className="font-bold text-sm flex items-center gap-2 dark:text-white mb-4">
+              <Trophy size={15} className="text-amber-500" /> Final Course Quiz
+            </h3>
+            {quizHistoryLoading['final'] ? (
+              <div className="flex items-center gap-2 text-zinc-400 text-xs"><Loader2 size={14} className="animate-spin" /> Loading...</div>
+            ) : (quizAttemptHistory['final'] || []).length === 0 ? (
+              <p className="text-xs text-zinc-400">No final quiz attempts yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {(quizAttemptHistory['final'] || []).map((attempt, i) => {
                   const pct = attempt.total > 0 ? Math.round((attempt.score / attempt.total) * 100) : 0;
                   const diffColor = attempt.difficulty === 'easy' ? 'text-emerald-500' : attempt.difficulty === 'medium' ? 'text-amber-500' : 'text-red-500';
                   const diffBg = attempt.difficulty === 'easy' ? 'bg-emerald-50 dark:bg-emerald-900/20' : attempt.difficulty === 'medium' ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-red-50 dark:bg-red-900/20';
@@ -2258,10 +2640,10 @@ const LearningInterface: React.FC = () => {
                 <X size={20} />
               </button>
               <div className="flex items-center gap-3 mb-1">
-                <Brain size={24} />
-                <h2 className="text-xl font-extrabold">Module Quiz</h2>
+                {quizScope === 'final' ? <Trophy size={24} /> : <Brain size={24} />}
+                <h2 className="text-xl font-extrabold">{quizScope === 'final' ? 'Final Course Quiz' : 'Module Quiz'}</h2>
               </div>
-              <p className="text-white/80 text-sm">{currentModule?.title}</p>
+              <p className="text-white/80 text-sm">{quizScope === 'final' ? curriculum?.title : currentModule?.title}</p>
             </div>
 
             <div className="p-6">
@@ -2272,7 +2654,7 @@ const LearningInterface: React.FC = () => {
                   </div>
                   <div className="text-center">
                     <p className="font-bold text-zinc-900 dark:text-white">Crafting your quiz...</p>
-                    <p className="text-sm text-zinc-400 mt-1">Generating {QUESTION_COUNTS[quizDifficulty]} {quizDifficulty} questions</p>
+                    <p className="text-sm text-zinc-400 mt-1">Generating {quizScope === 'final' ? FINAL_QUESTION_COUNTS[quizDifficulty] : QUESTION_COUNTS[quizDifficulty]} {quizDifficulty} questions</p>
                   </div>
                 </div>
               ) : (
@@ -2306,15 +2688,32 @@ const LearningInterface: React.FC = () => {
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
                               <span className={`font-bold text-sm ${isSelected ? meta.text : 'text-zinc-800 dark:text-zinc-200'}`}>{meta.label}</span>
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{ESTIMATED_MINUTES[diff]}m</span>
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{quizScope === 'final' ? FINAL_ESTIMATED_MINUTES[diff] : ESTIMATED_MINUTES[diff]}m</span>
                             </div>
-                            <p className="text-xs text-zinc-500 mt-0.5">{meta.desc} • {QUESTION_COUNTS[diff]} questions</p>
+                            <p className="text-xs text-zinc-500 mt-0.5">{meta.desc} • {quizScope === 'final' ? FINAL_QUESTION_COUNTS[diff] : QUESTION_COUNTS[diff]} questions</p>
                           </div>
                           {isSelected && <CheckCircle size={18} className={meta.text} />}
                         </button>
                       );
                     })}
                   </div>
+
+                  {isMathPhysicsContext && (
+                    <div className="mb-6">
+                      <p className="text-sm font-semibold text-zinc-600 dark:text-zinc-300 mb-3">Quiz Style:</p>
+                      <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
+                        {(['mixed', 'theory', 'numerical'] as QuizType[]).map(type => (
+                          <button
+                            key={type}
+                            onClick={() => setQuizType(type)}
+                            className={`flex-1 py-2 text-xs font-bold rounded-lg capitalize transition-colors ${quizType === type ? 'bg-white dark:bg-zinc-700 text-peach shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex gap-3">
                     <button onClick={handleCloseQuiz} className="flex-1 py-3 rounded-xl border-2 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 font-bold text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
@@ -2342,10 +2741,14 @@ const LearningInterface: React.FC = () => {
               <div className="bg-gradient-to-r from-peach to-orange-400 px-6 py-4 text-white flex-shrink-0">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Brain size={18} />
-                    <span className="font-bold text-sm">{currentModule?.title}</span>
+                    {quizScope === 'final' ? <Trophy size={18} /> : <Brain size={18} />}
+                    <span className="font-bold text-sm">{quizScope === 'final' ? curriculum?.title : currentModule?.title}</span>
                   </div>
                   <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 text-white/90 text-sm font-bold bg-black/20 px-2 py-1 rounded">
+                      <Clock size={14} />
+                      <span>{Math.floor(quizElapsedSeconds / 60)}:{(quizElapsedSeconds % 60).toString().padStart(2, '0')}</span>
+                    </div>
                     <span className="text-sm font-bold text-white/90">{quizCurrentIndex + 1} / {quizQuestions.length}</span>
                     <button onClick={handleCloseQuiz} className="text-white/70 hover:text-white transition-colors"><X size={18} /></button>
                   </div>
@@ -2429,8 +2832,8 @@ const LearningInterface: React.FC = () => {
           return (
             <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
               <div className="bg-gradient-to-r from-peach to-orange-400 px-6 py-5 text-white text-center">
-                <h2 className="text-xl font-extrabold">Quiz Complete!</h2>
-                <p className="text-white/80 text-sm mt-1">{currentModule?.title}</p>
+                <h2 className="text-xl font-extrabold">{quizScope === 'final' ? 'Final Quiz Complete!' : 'Quiz Complete!'}</h2>
+                <p className="text-white/80 text-sm mt-1">{quizScope === 'final' ? curriculum?.title : currentModule?.title}</p>
               </div>
 
               <div className="p-6">
@@ -2459,17 +2862,33 @@ const LearningInterface: React.FC = () => {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                   {[
                     { label: 'Correct', val: score, color: 'text-emerald-500' },
                     { label: 'Wrong', val: total - score, color: 'text-red-400' },
                     { label: 'Accuracy', val: `${pct}%`, color: 'text-peach' },
+                    { label: 'Time', val: quizTimeTaken !== null ? `${Math.floor(quizTimeTaken / 60)}m ${quizTimeTaken % 60}s` : '--', color: 'text-blue-400' },
                   ].map(stat => (
                     <div key={stat.label} className="text-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800">
                       <p className={`text-xl font-extrabold ${stat.color}`}>{stat.val}</p>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mt-0.5">{stat.label}</p>
                     </div>
                   ))}
+                </div>
+
+                {/* AI Feedback */}
+                <div className="mt-2 mb-6">
+                  {quizFeedbackLoading ? (
+                     <div className="flex items-center gap-2 text-zinc-400 text-xs justify-center bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4">
+                       <Loader2 size={16} className="animate-spin text-peach" /> 
+                       Generating personalized feedback...
+                     </div>
+                  ) : quizFeedback ? (
+                     <div className="bg-peach/10 border border-peach/20 rounded-xl p-4">
+                       <h4 className="flex items-center justify-center gap-2 text-sm font-bold text-peach mb-2"><Brain size={16} /> AI Feedback</h4>
+                       <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed text-left whitespace-pre-wrap">{quizFeedback}</p>
+                     </div>
+                  ) : null}
                 </div>
 
                 {/* Difficulty badge */}
@@ -2657,6 +3076,117 @@ const LearningInterface: React.FC = () => {
         })()}
       </div>
     )}
+    {/* ═══════════ FLASHCARD PRACTICE OVERLAY ═══════════ */}
+    {flashcardPracticeMode && currentFlashcards.length > 0 && (() => {
+      const card = currentFlashcards[Math.min(currentFlashcardIndex, currentFlashcards.length - 1)];
+      const progressPct = ((currentFlashcardIndex + 1) / currentFlashcards.length) * 100;
+      return (
+        <div
+          ref={flashcardPracticeRef}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setFlashcardPracticeMode(false); }}
+        >
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-peach to-orange-400 px-6 py-4 text-white">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Layers size={18} />
+                  <span className="font-bold text-sm">{currentModule?.title || 'Flashcards'}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-white/90">{currentFlashcardIndex + 1} / {currentFlashcards.length}</span>
+                  <button onClick={() => setFlashcardPracticeMode(false)} className="text-white/70 hover:text-white transition-colors"><X size={18} /></button>
+                </div>
+              </div>
+              <div className="w-full bg-white/20 rounded-full h-1.5">
+                <div className="bg-white h-1.5 rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
+              </div>
+            </div>
+
+            {/* Card */}
+            <div className="p-8 flex flex-col items-center">
+              <div
+                className="w-full max-w-lg cursor-pointer mb-6"
+                style={{ perspective: '800px' }}
+                onClick={() => setFlashcardFlipped(prev => !prev)}
+              >
+                <div
+                  className="relative w-full transition-transform duration-500"
+                  style={{
+                    transformStyle: 'preserve-3d',
+                    transform: flashcardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                    minHeight: '240px',
+                  }}
+                >
+                  {/* Front */}
+                  <div
+                    className="absolute inset-0 rounded-2xl bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-800 dark:to-zinc-750 flex items-center justify-center p-8 text-center border-2 border-zinc-200 dark:border-zinc-600 shadow-lg"
+                    style={{ backfaceVisibility: 'hidden' }}
+                  >
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-peach mb-3 block">Question</span>
+                      <p className="text-lg font-bold text-zinc-800 dark:text-white leading-relaxed">{card.front}</p>
+                    </div>
+                  </div>
+                  {/* Back */}
+                  <div
+                    className="absolute inset-0 rounded-2xl bg-gradient-to-br from-peach/10 to-orange-50 dark:from-peach/15 dark:to-zinc-800 flex items-center justify-center p-8 text-center border-2 border-peach/30 dark:border-peach/40 shadow-lg"
+                    style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                  >
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-peach mb-3 block">Answer</span>
+                      <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">{card.back}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation controls */}
+              <div className="flex items-center gap-6">
+                <button
+                  onClick={handleFlashcardPrev}
+                  disabled={currentFlashcardIndex === 0}
+                  className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 font-bold text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:text-zinc-900 dark:hover:text-white transition-colors"
+                >
+                  <ChevronLeft size={18} /> Prev
+                </button>
+
+                <button
+                  onClick={() => setFlashcardFlipped(prev => !prev)}
+                  className="px-5 py-2.5 rounded-xl bg-peach/10 text-peach font-bold text-sm hover:bg-peach/20 transition-colors flex items-center gap-2"
+                >
+                  <RotateCcw size={14} /> Flip
+                </button>
+
+                {currentFlashcardIndex < currentFlashcards.length - 1 ? (
+                  <button
+                    onClick={handleFlashcardNext}
+                    className="flex items-center gap-2 text-zinc-900 dark:text-white font-bold text-sm hover:text-peach dark:hover:text-peach transition-colors"
+                  >
+                    Next <ChevronRight size={18} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setFlashcardPracticeMode(false)}
+                    className="flex items-center gap-2 bg-peach text-white px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
+                  >
+                    <CheckCircle size={14} /> Done
+                  </button>
+                )}
+              </div>
+
+              {/* Keyboard hints */}
+              <div className="mt-5 flex items-center gap-4 text-[10px] text-zinc-400 font-semibold">
+                <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono text-[9px]">←</kbd><kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono text-[9px]">→</kbd> Navigate</span>
+                <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono text-[9px]">Space</kbd> Flip</span>
+                <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono text-[9px]">Esc</kbd> Close</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
     </>
   );
 };

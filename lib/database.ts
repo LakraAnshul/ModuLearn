@@ -18,6 +18,8 @@ export interface UserProfile {
   goals: string[];
   learningStyles: string[];
   onboarded: boolean;
+  streakCount: number;
+  lastLoginDate: string | null;
   createdAt: string;
 }
 
@@ -245,8 +247,61 @@ export const db = {
       goals: data.goals || [],
       learningStyles: data.learning_styles || [],
       onboarded: data.onboarded,
+      streakCount: data.streak_count || 0,
+      lastLoginDate: data.last_login_date,
       createdAt: data.updated_at
     };
+  },
+
+  /**
+   * Updates the user's streak based on login activity.
+   */
+  async updateStreak(): Promise<void> {
+    if (!isConfigured()) return;
+
+    const profile = await this.getProfile();
+    if (!profile) return;
+
+    const today = new Date();
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    let newStreak = profile.streakCount || 0;
+    let shouldUpdate = false;
+
+    if (profile.lastLoginDate) {
+      const lastLogin = new Date(profile.lastLoginDate);
+      const lastLoginDate = new Date(lastLogin.getFullYear(), lastLogin.getMonth(), lastLogin.getDate());
+      
+      const diffDays = Math.round((todayDate.getTime() - lastLoginDate.getTime()) / 86400000);
+
+      if (diffDays === 1) {
+        newStreak += 1;
+        shouldUpdate = true;
+      } else if (diffDays > 1) {
+        newStreak = 1;
+        shouldUpdate = true;
+      } else if (diffDays === 0 && newStreak === 0) {
+          newStreak = 1;
+          shouldUpdate = true;
+      }
+    } else {
+      newStreak = 1;
+      shouldUpdate = true;
+    }
+
+    if (shouldUpdate) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          streak_count: newStreak,
+          last_login_date: new Date().toISOString()
+        })
+        .eq('id', profile.id);
+
+      if (error) {
+        console.error('Failed to update streak:', error);
+      }
+    }
   },
 
   /**
@@ -612,6 +667,74 @@ export const db = {
     const text = response.text;
     if (!text) throw new Error("Failed to generate content");
     return JSON.parse(text);
+  },
+
+  // ─── Flashcard Methods ─────────────────────────────────────────────────────
+
+  /**
+   * Saves (upserts) a set of flashcards for a specific module within a learning path.
+   * If flashcards already exist for the same user+path+module they are overwritten.
+   */
+  async saveFlashcards(
+    learningPathId: string,
+    moduleId: string,
+    cards: { id: string; front: string; back: string }[],
+  ): Promise<void> {
+    if (!isConfigured()) {
+      return;
+    }
+
+    const userId = await getCurrentUserId();
+    const { error } = await supabase
+      .from('flashcards')
+      .upsert(
+        {
+          user_id: userId,
+          learning_path_id: learningPathId,
+          module_id: moduleId,
+          cards,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,learning_path_id,module_id' },
+      );
+
+    if (error) {
+      console.error('Failed to save flashcards:', error);
+      throw new Error(error.message || 'Failed to save flashcards');
+    }
+  },
+
+  /**
+   * Retrieves the saved flashcard set for a specific module within a learning path.
+   * Returns null if no flashcards have been generated yet.
+   */
+  async getFlashcards(
+    learningPathId: string,
+    moduleId: string,
+  ): Promise<{ id: string; front: string; back: string }[] | null> {
+    if (!isConfigured()) {
+      return null;
+    }
+
+    const userId = await getCurrentUserId();
+    const { data, error } = await supabase
+      .from('flashcards')
+      .select('cards')
+      .eq('user_id', userId)
+      .eq('learning_path_id', learningPathId)
+      .eq('module_id', moduleId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Failed to fetch flashcards:', error);
+      return null;
+    }
+
+    if (!data || !Array.isArray(data.cards)) {
+      return null;
+    }
+
+    return data.cards as { id: string; front: string; back: string }[];
   },
 
   /**
