@@ -17,13 +17,13 @@ const LandingPage: React.FC = () => {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative pt-16 pb-24 overflow-hidden">
+      <section className="relative pt-12 pb-12 md:pt-16 md:pb-24 overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center">
           <div className="z-10 relative">
             <div className="absolute -top-20 -left-10 w-40 h-40 opacity-20 dark:opacity-10 pointer-events-none hidden lg:block">
               <IdeaIllustration className="text-zinc-400" />
             </div>
-            <h1 className="text-5xl lg:text-[72px] leading-[1.1] font-extrabold text-zinc-900 dark:text-white mb-6 tracking-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-[72px] leading-[1.1] font-extrabold text-zinc-900 dark:text-white mb-6 tracking-tight">
               Your ultimate <br /> 
               destination for <br />
               <span className="text-zinc-400">limitless learning</span>
@@ -88,8 +88,8 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Dark Highlight Section */}
-      <section className="bg-zinc-950 py-24 my-16">
-        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
+      <section className="bg-zinc-950 py-12 my-8 md:py-24 md:my-16">
+        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 md:gap-20 items-center">
           <div className="order-2 md:order-1 relative">
              <div className="w-full aspect-square flex items-center justify-center">
                {/* @ts-ignore */}
@@ -102,11 +102,11 @@ const LandingPage: React.FC = () => {
              </div>
           </div>
           <div className="order-1 md:order-2 text-white">
-            <h2 className="text-4xl md:text-5xl font-extrabold mb-8 leading-tight">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-6 md:mb-8 leading-tight">
               Concentrate on your passion, <br />
               we'll care of everything.
             </h2>
-            <p className="text-zinc-400 text-lg mb-12 leading-relaxed max-w-lg">
+            <p className="text-zinc-400 text-lg mb-8 md:mb-12 leading-relaxed max-w-lg">
               We convert complex materials into easy-to-use learning tools, allowing you to focus on the knowledge and not the logistics of organizing chapters or quizzes.
             </p>
             <Link to="/signup" className="bg-peach text-white px-8 py-4 rounded-xl font-bold inline-flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-peach/20">
@@ -117,15 +117,15 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Features Grid */}
-      <section className="py-24 bg-[#fafafa] dark:bg-zinc-900 transition-colors">
+      <section className="py-12 md:py-24 bg-[#fafafa] dark:bg-zinc-900 transition-colors">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-20">
+          <div className="text-center mb-12 md:mb-20">
             <h2 className="text-4xl md:text-5xl font-extrabold text-zinc-900 dark:text-white mb-4">Learn practical skills online</h2>
             <p className="text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">Advance your career at your own pace with our platform's curated courses designed to fit your busy lifestyle.</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-zinc-800 text-white rounded-[32px] p-10 flex flex-col justify-between h-[500px] shadow-2xl group overflow-hidden">
+            <div className="bg-zinc-800 text-white rounded-[32px] p-8 md:p-10 flex flex-col justify-between h-auto min-h-[420px] md:h-[500px] shadow-2xl group overflow-hidden">
               <div className="relative z-10">
                 <Layers size={40} className="text-zinc-400 mb-8 group-hover:text-peach transition-colors" />
                 <h3 className="text-2xl font-bold mb-6">Structured Chapters</h3>
@@ -141,7 +141,7 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-[32px] p-10 h-[500px] flex flex-col group relative overflow-hidden">
+            <div className="bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-[32px] p-8 md:p-10 h-auto min-h-[420px] md:h-[500px] flex flex-col group relative overflow-hidden">
               <BookOpen size={40} className="text-zinc-500 mb-8 group-hover:text-peach transition-colors" />
               <h3 className="text-2xl font-bold mb-4">Interactive Quizzes</h3>
               <p className="text-zinc-600 dark:text-zinc-400 mb-8">AI-generated assessments that adapt to your knowledge level automatically.</p>
@@ -156,7 +156,7 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-white rounded-[32px] p-10 h-[500px] flex flex-col group border border-transparent dark:border-zinc-800 relative overflow-hidden">
+            <div className="bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-white rounded-[32px] p-8 md:p-10 h-auto min-h-[420px] md:h-[500px] flex flex-col group border border-transparent dark:border-zinc-800 relative overflow-hidden">
               <Play size={40} className="text-zinc-500 mb-8 group-hover:text-peach transition-colors" />
               <h3 className="text-2xl font-bold mb-4">Smart Recs</h3>
               <p className="text-zinc-600 dark:text-zinc-400">Video recommendations from YouTube and Coursera that match your current chapter perfectly.</p>
@@ -177,10 +177,10 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="py-24">
-        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
+      <section className="py-12 md:py-24">
+        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 md:gap-20 items-center">
           <div>
-            <h2 className="text-4xl font-extrabold mb-8 dark:text-white">What our students <br />say about us</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold mb-6 md:mb-8 dark:text-white">What our students <br />say about us</h2>
             <p className="text-zinc-500 dark:text-zinc-400 italic text-xl leading-relaxed mb-10">
               "I've been a student of ModuLearn for quite some time. The platform features some of the most renowned professional curators. It truly revolutionizes the future of learning technology."
             </p>
@@ -194,7 +194,7 @@ const LandingPage: React.FC = () => {
             </div>
           </div>
           <div className="relative">
-            <div className="w-full h-[500px] flex items-center justify-center">
+            <div className="w-full h-[320px] sm:h-[500px] flex items-center justify-center">
               {/* @ts-ignore */}
               <dotlottie-wc
                 src="https://lottie.host/f0da80a8-9296-4968-9bb3-3faee361ee90/eskwtBe47f.lottie"
@@ -203,7 +203,7 @@ const LandingPage: React.FC = () => {
                 loop
               />
             </div>
-            <div className="absolute -bottom-10 -left-10 bg-peach p-8 rounded-[32px] text-white shadow-2xl max-w-xs transition-transform hover:-translate-y-2">
+            <div className="relative mt-4 sm:mt-0 sm:absolute sm:-bottom-10 sm:-left-10 bg-peach p-6 sm:p-8 rounded-[32px] text-white shadow-2xl w-full sm:max-w-xs transition-transform hover:-translate-y-2">
               <h4 className="font-bold text-xl mb-1">Marcus Lee</h4>
               <p className="text-white/80 text-sm font-medium">Product Designer @ Meta</p>
             </div>

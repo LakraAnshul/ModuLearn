@@ -6,10 +6,10 @@ import logo from './logo.svg';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-zinc-950 text-white pt-20 pb-10">
+    <footer className="bg-zinc-950 text-white pt-12 md:pt-20 pb-10">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 pb-16 border-b border-zinc-800">
-          <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 pb-12 md:pb-16 border-b border-zinc-800">
+          <div className="col-span-2 md:col-span-1 space-y-6">
             <Link to="/" className="flex items-center gap-2">
               <img src={logo} alt="ModuLearn" className="w-6 h-6 object-contain" />
               <span className="text-xl font-bold">ModuLearn</span>

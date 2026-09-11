@@ -357,12 +357,11 @@ const Chatbot: React.FC<Props> = ({ userProfile, learningPaths }) => {
 
       {/* ── Chat panel ────────────────────────────────────────────────── */}
       <div
-        className={`fixed bottom-[88px] right-6 z-50 w-[380px] max-w-[calc(100vw-24px)] flex flex-col rounded-[24px] shadow-2xl shadow-black/30 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden transition-all duration-300 origin-bottom-right ${
+        className={`fixed bottom-[88px] right-3 sm:right-6 left-3 sm:left-auto z-50 w-auto sm:w-[380px] max-w-[calc(100vw-1.5rem)] sm:max-w-[calc(100vw-24px)] h-[70vh] max-h-[560px] flex flex-col rounded-[24px] shadow-2xl shadow-black/30 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden transition-all duration-300 origin-bottom-right ${
           open
             ? 'opacity-100 scale-100 pointer-events-auto'
             : 'opacity-0 scale-90 pointer-events-none'
         }`}
-        style={{ height: '560px' }}
         role="dialog"
         aria-label="AI Assistant"
       >

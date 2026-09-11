@@ -466,29 +466,29 @@ const StructurePath: React.FC = () => {
   });
 
   return (
-    <div className="max-w-5xl mx-auto py-10">
-      <button 
+    <div className="max-w-5xl mx-auto py-6 sm:py-10">
+      <button
         onClick={() => navigate('/app/create')}
-        className="flex items-center gap-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-bold text-xs uppercase tracking-widest mb-8 transition-colors"
+        className="flex items-center gap-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-bold text-xs uppercase tracking-widest mb-6 sm:mb-8 transition-colors"
       >
         <ArrowLeft size={16} /> Back to Input
       </button>
 
       {/* Header Section */}
-      <div className="mb-12">
-        <div className="bg-gradient-to-r from-peach/10 to-transparent dark:from-peach/5 p-8 rounded-[32px] border border-peach/20 mb-8">
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex-1">
-              <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">{curriculum.title}</h1>
-              <p className="text-zinc-600 dark:text-zinc-400">{curriculum.description}</p>
+      <div className="mb-10 sm:mb-12">
+        <div className="bg-gradient-to-r from-peach/10 to-transparent dark:from-peach/5 p-5 sm:p-8 rounded-[24px] sm:rounded-[32px] border border-peach/20 mb-6 sm:mb-8">
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2 break-words">{curriculum.title}</h1>
+              <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400">{curriculum.description}</p>
             </div>
-            <div className="text-right ml-8">
-              <div className="text-4xl font-black text-peach mb-2">{modules.length}</div>
+            <div className="text-right ml-2 sm:ml-8 shrink-0">
+              <div className="text-3xl sm:text-4xl font-black text-peach mb-2">{modules.length}</div>
               <p className="text-xs font-bold uppercase tracking-widest text-zinc-400">Modules</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-6 pt-6 border-t border-zinc-200 dark:border-zinc-800">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6 pt-6 border-t border-zinc-200 dark:border-zinc-800">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">Total Duration</p>
               <div className="flex items-center gap-2">
@@ -521,11 +521,11 @@ const StructurePath: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-extrabold dark:text-white">Learning Modules</h2>
-          <button 
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-xl sm:text-2xl font-extrabold dark:text-white">Learning Modules</h2>
+          <button
             onClick={handleAddModule}
-            className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 px-6 py-3 rounded-xl font-bold transition-all text-sm"
+            className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 px-4 sm:px-6 py-3 rounded-xl font-bold transition-all text-sm"
           >
             <Plus size={18} /> Add Module
           </button>
@@ -537,30 +537,30 @@ const StructurePath: React.FC = () => {
         {modules.map((mod, idx) => (
           <div key={mod.id} className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-100 dark:border-zinc-800 overflow-hidden transition-all hover:border-zinc-200 dark:hover:border-zinc-700 hover:shadow-lg dark:hover:shadow-none hover:shadow-zinc-100">
             {/* Module Header */}
-            <div 
-              className="p-6 flex items-start gap-6 group cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+            <div
+              className="p-4 sm:p-6 flex items-start gap-3 sm:gap-6 group cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
               onClick={() => setExpandedId(expandedId === mod.id ? null : mod.id)}
             >
-              <button className="mt-1 text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-400 dark:group-hover:text-zinc-400 cursor-grab shrink-0">
+              <button className="mt-1 hidden sm:block text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-400 dark:group-hover:text-zinc-400 cursor-grab shrink-0">
                 <GripVertical size={20} />
               </button>
-              
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-peach/10 flex items-center justify-center text-sm font-black text-peach">
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-peach/10 flex items-center justify-center text-sm font-black text-peach shrink-0">
                       {idx + 1}
                     </div>
-                    <h3 className="text-lg font-bold dark:text-white">{mod.title}</h3>
+                    <h3 className="text-base sm:text-lg font-bold dark:text-white break-words">{mod.title}</h3>
                   </div>
-                  <ChevronRight 
-                    size={20} 
-                    className={`text-zinc-400 transition-transform ${expandedId === mod.id ? 'rotate-90' : ''}`}
+                  <ChevronRight
+                    size={20}
+                    className={`text-zinc-400 transition-transform shrink-0 ${expandedId === mod.id ? 'rotate-90' : ''}`}
                   />
                 </div>
                 <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">{mod.description}</p>
-                
-                <div className="flex items-center gap-6">
+
+                <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
                   <div className="flex items-center gap-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
                     <Clock size={16} className="text-peach" />
                     {mod.estimatedMinutes} mins
@@ -572,7 +572,7 @@ const StructurePath: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
@@ -598,7 +598,7 @@ const StructurePath: React.FC = () => {
 
             {/* Expanded Subtopics */}
             {expandedId === mod.id && (
-              <div className="bg-zinc-50 dark:bg-zinc-800/50 px-6 py-4 border-t border-zinc-100 dark:border-zinc-800">
+              <div className="bg-zinc-50 dark:bg-zinc-800/50 px-4 sm:px-6 py-4 border-t border-zinc-100 dark:border-zinc-800">
                 <h4 className="text-sm font-bold dark:text-white mb-4 text-zinc-600 dark:text-zinc-300 uppercase tracking-widest">
                   Subtopics ({mod.subtopics?.length || 0})
                 </h4>
@@ -622,20 +622,20 @@ const StructurePath: React.FC = () => {
       </div>
 
       {/* Action Bar */}
-      <div className="flex items-center justify-between p-10 bg-gradient-to-r from-zinc-950 to-zinc-900 dark:from-zinc-900 dark:to-zinc-800 rounded-[40px] text-white shadow-2xl transition-colors duration-200">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 p-6 sm:p-10 bg-gradient-to-r from-zinc-950 to-zinc-900 dark:from-zinc-900 dark:to-zinc-800 rounded-[28px] sm:rounded-[40px] text-white shadow-2xl transition-colors duration-200">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white/10 rounded-2xl flex items-center justify-center shrink-0">
             <CheckCircle2 size={24} className="text-peach" />
           </div>
           <div>
-            <h4 className="font-bold text-lg">Ready to start learning?</h4>
-            <p className="text-zinc-400 text-sm">{durationHint} • {totalHours} hrs • {totalTopics} topics</p>
+            <h4 className="font-bold text-base sm:text-lg">Ready to start learning?</h4>
+            <p className="text-zinc-400 text-xs sm:text-sm">{durationHint} • {totalHours} hrs • {totalTopics} topics</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={handleCreatePath}
           disabled={savingPath}
-          className="bg-peach text-white px-10 py-5 rounded-2xl font-bold flex items-center gap-2 hover:bg-peach/90 transition-all shadow-xl shadow-peach/20 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto justify-center bg-peach text-white px-8 sm:px-10 py-4 sm:py-5 rounded-2xl font-bold flex items-center gap-2 hover:bg-peach/90 transition-all shadow-xl shadow-peach/20 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {savingPath ? (
             <>
@@ -657,18 +657,18 @@ const StructurePath: React.FC = () => {
       )}
 
       {showMindmap && (
-        <div className="fixed inset-0 z-[100] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-6xl bg-white dark:bg-zinc-900 rounded-[28px] border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+        <div className="fixed inset-0 z-[100] bg-black/45 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+          <div className="w-full max-w-6xl max-h-[95vh] overflow-y-auto bg-white dark:bg-zinc-900 rounded-[20px] sm:rounded-[28px] border border-zinc-200 dark:border-zinc-800 shadow-2xl">
+            <div className="px-4 sm:px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-xl font-extrabold text-zinc-900 dark:text-white">Topic Mindmap</h3>
+                <h3 className="text-lg sm:text-xl font-extrabold text-zinc-900 dark:text-white">Topic Mindmap</h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                   {mindmapDensity === 'concise'
                     ? 'Concise map showing key parts of the topic.'
                     : 'Detailed map showing parts, focus and subtopics.'}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-lg p-1">
                   <button
                     onClick={() => setMindmapDensity('concise')}
@@ -704,12 +704,12 @@ const StructurePath: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-4 bg-zinc-50 dark:bg-zinc-950">
-              <div className="mb-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-                <ListTree size={13} className="text-peach" />
+            <div className="p-3 sm:p-4 bg-zinc-50 dark:bg-zinc-950">
+              <div className="mb-3 flex items-start gap-2 px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                <ListTree size={13} className="text-peach shrink-0 mt-0.5" />
                 Topic names are arranged as parent-child branches. Drag to pan, scroll both directions.
               </div>
-              <div className="mb-3 flex items-center gap-2">
+              <div className="mb-3 flex items-center gap-2 flex-wrap">
                 <button
                   onClick={handleZoomOutMindmap}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
@@ -733,11 +733,11 @@ const StructurePath: React.FC = () => {
                 </button>
               </div>
               {mindmapError ? (
-                <div className="h-[520px] flex items-center justify-center text-sm font-medium text-red-500">{mindmapError}</div>
+                <div className="h-[60vh] sm:h-[520px] flex items-center justify-center text-sm font-medium text-red-500">{mindmapError}</div>
               ) : (
                 <div
                   ref={mindmapContainerRef}
-                  className="h-[520px] w-full bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-auto touch-pan-x touch-pan-y"
+                  className="h-[60vh] sm:h-[520px] w-full bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-auto touch-pan-x touch-pan-y"
                 />
               )}
             </div>

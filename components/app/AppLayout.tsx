@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  PlusCircle, 
-  Library, 
-  LineChart, 
-  Settings, 
+import {
+  LayoutDashboard,
+  PlusCircle,
+  Library,
+  LineChart,
+  Settings,
   LogOut,
   Bell,
-  Loader2
+  Loader2,
+  Menu,
+  X
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.ts';
 import { db, UserProfile, SavedLearningPathSummary } from '../../lib/database.ts';
@@ -16,9 +18,10 @@ import logo from '../logo.svg';
 import { ChatbotContextProvider } from './ChatbotContext.tsx';
 import Chatbot from './Chatbot.tsx';
 
-const SidebarItem: React.FC<{ to: string; icon: React.ReactNode; label: string; active?: boolean }> = ({ to, icon, label, active }) => (
-  <Link 
-    to={to} 
+const SidebarItem: React.FC<{ to: string; icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }> = ({ to, icon, label, active, onClick }) => (
+  <Link
+    to={to}
+    onClick={onClick}
     className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl transition-all duration-300 group ${
       active 
         ? 'bg-peach text-white shadow-lg shadow-peach/20' 
@@ -39,10 +42,22 @@ const AppLayout: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [learningPaths, setLearningPaths] = useState<SavedLearningPathSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Check if we're in learning interface - hide sidebars for full content view
   const isLearningPath = currentPath.includes('/app/path/');
   const showCompactTopBar = ['/app', '/app/create', '/app/progress', '/app/library', '/app/settings'].includes(currentPath);
+
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [currentPath]);
+
+  // Prevent body scroll while the mobile drawer is open.
+  useEffect(() => {
+    document.body.style.overflow = mobileNavOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileNavOpen]);
 
   useEffect(() => {
     async function checkAuth() {
@@ -96,14 +111,30 @@ const AppLayout: React.FC = () => {
   return (
     <ChatbotContextProvider>
     <div className="flex min-h-screen bg-[#fafafa] dark:bg-zinc-950 transition-colors duration-200 overflow-x-hidden">
-      {/* Sidebar - Hidden on learning path */}
+      {/* Mobile drawer overlay */}
+      {!isLearningPath && mobileNavOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar - Hidden on learning path. Off-canvas drawer on mobile, fixed on desktop. */}
       {!isLearningPath && (
-        <aside className="w-72 bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 flex flex-col fixed inset-y-0 left-0 z-40 transition-colors duration-200 max-w-[288px]">
+        <aside className={`w-72 max-w-[85vw] bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 flex flex-col fixed inset-y-0 left-0 z-50 transition-transform duration-300 lg:max-w-[288px] ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
           <div className="p-8 pb-12 flex items-center justify-between">
             <Link to="/app" className="flex items-center gap-2">
               <img src={logo} alt="ModuLearn" className="w-8 h-8 object-contain" />
               <span className="text-xl font-extrabold tracking-tight dark:text-white">ModuLearn</span>
             </Link>
+            <button
+              onClick={() => setMobileNavOpen(false)}
+              className="lg:hidden text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+              aria-label="Close menu"
+            >
+              <X size={24} />
+            </button>
           </div>
 
           <nav className="flex-1 px-4 space-y-2">
@@ -152,9 +183,28 @@ const AppLayout: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <main className={`flex-1 ${!isLearningPath ? 'ml-72' : 'ml-0'} w-full min-w-0 transition-all duration-300`}>
+      <main className={`flex-1 ${!isLearningPath ? 'lg:ml-72' : 'ml-0'} w-full min-w-0 transition-all duration-300`}>
+        {/* Mobile top bar with hamburger (all non-learning pages) */}
+        {!isLearningPath && (
+          <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-800">
+            <button
+              onClick={() => setMobileNavOpen(true)}
+              className="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"
+              aria-label="Open menu"
+            >
+              <Menu size={24} />
+            </button>
+            <Link to="/app" className="flex items-center gap-2">
+              <img src={logo} alt="ModuLearn" className="w-7 h-7 object-contain" />
+              <span className="text-lg font-extrabold tracking-tight dark:text-white">ModuLearn</span>
+            </Link>
+            <div className="w-9 h-9 rounded-xl border border-zinc-100 dark:border-zinc-800 overflow-hidden flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 font-bold text-sm uppercase">
+              {profile?.fullName?.trim()?.[0] || 'U'}
+            </div>
+          </div>
+        )}
         {!isLearningPath && showCompactTopBar && (
-          <div className="sticky top-0 z-30 px-10 pt-6 pb-2 flex justify-end">
+          <div className="hidden lg:flex sticky top-0 z-30 px-10 pt-6 pb-2 justify-end">
             <div className="flex items-center gap-6">
               <button className="relative text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
                 <Bell size={22} />
@@ -193,7 +243,7 @@ const AppLayout: React.FC = () => {
           </div>
         )}
 
-        <div className={`${isLearningPath ? 'p-0' : 'p-10'} w-full overflow-x-hidden transition-all duration-300`}>
+        <div className={`${isLearningPath ? 'p-0' : 'p-4 sm:p-6 lg:p-10'} w-full overflow-x-hidden transition-all duration-300`}>
           <div className="w-full max-w-full overflow-x-hidden">
             <Outlet />
           </div>

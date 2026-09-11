@@ -96,9 +96,9 @@ const OnboardingPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-6 transition-colors duration-200">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center px-4 py-8 sm:p-6 transition-colors duration-200">
       {/* Progress Bar */}
-      <div className="w-full max-w-2xl mb-12">
+      <div className="w-full max-w-2xl mb-8 sm:mb-12">
         <div className="flex justify-between mb-4 px-2">
           {Array.from({ length: totalSteps }).map((_, i) => (
             <div 
@@ -117,14 +117,14 @@ const OnboardingPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-[48px] shadow-2xl shadow-zinc-200/50 dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+      <div className="w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-3xl sm:rounded-[48px] shadow-2xl shadow-zinc-200/50 dark:shadow-none border border-zinc-100 dark:border-zinc-800 overflow-hidden flex flex-col md:flex-row md:min-h-[600px]">
         {/* Illustrative Sidebar */}
-        <div className="md:w-1/3 bg-peach/5 dark:bg-zinc-800/50 p-12 flex flex-col items-center justify-center text-center border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800">
-          {step === 1 && <OnboardingWelcomeIllustration className="w-full h-auto mb-8" />}
-          {step === 2 && <EducationLevelIllustration className="w-full h-auto mb-8" />}
-          {step === 3 && <RobotIllustration className="w-full h-auto mb-8" />}
-          {step === 4 && <div className="p-10 bg-white dark:bg-zinc-800 rounded-3xl shadow-xl animate-float"><Target size={80} className="text-peach" /></div>}
-          
+        <div className="md:w-1/3 bg-peach/5 dark:bg-zinc-800/50 p-6 sm:p-10 md:p-12 flex flex-col items-center justify-center text-center border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800">
+          {step === 1 && <OnboardingWelcomeIllustration className="w-full max-w-[180px] md:max-w-none h-auto mb-6 md:mb-8" />}
+          {step === 2 && <EducationLevelIllustration className="w-full max-w-[180px] md:max-w-none h-auto mb-6 md:mb-8" />}
+          {step === 3 && <RobotIllustration className="w-full max-w-[180px] md:max-w-none h-auto mb-6 md:mb-8" />}
+          {step === 4 && <div className="p-6 sm:p-10 bg-white dark:bg-zinc-800 rounded-3xl shadow-xl animate-float mb-2"><Target size={64} className="md:w-20 md:h-20 text-peach" /></div>}
+
           <h2 className="text-xl font-bold dark:text-white mb-2">
             {step === 1 && "Basic Setup"}
             {step === 2 && "Education Level"}
@@ -140,7 +140,7 @@ const OnboardingPage: React.FC = () => {
         </div>
 
         {/* Form Content */}
-        <div className="flex-1 p-12 flex flex-col justify-between">
+        <div className="flex-1 p-6 sm:p-10 md:p-12 flex flex-col justify-between">
           <div className="space-y-8 animate-draw">
             {step === 1 && (
               <div className="space-y-8">
@@ -202,19 +202,19 @@ const OnboardingPage: React.FC = () => {
                 <div className="grid grid-cols-1 gap-4">
                   <button
                     onClick={() => setFormData(prev => ({ ...prev, educationLevel: 'school' }))}
-                    className={`flex items-center gap-6 p-8 rounded-3xl border-2 transition-all group text-left ${
+                    className={`flex items-center gap-4 sm:gap-6 p-5 sm:p-8 rounded-3xl border-2 transition-all group text-left ${
                       formData.educationLevel === 'school'
                         ? 'border-peach bg-peach/5'
                         : 'border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 hover:border-zinc-200 dark:hover:border-zinc-700'
                     }`}
                   >
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${
+                    <div className={`w-12 h-12 sm:w-16 sm:h-16 shrink-0 rounded-2xl flex items-center justify-center transition-all ${
                       formData.educationLevel === 'school' ? 'bg-peach text-white shadow-xl shadow-peach/20' : 'bg-white dark:bg-zinc-700 text-zinc-400'
                     }`}>
-                      <School size={32} />
+                      <School size={28} className="sm:w-8 sm:h-8" />
                     </div>
                     <div>
-                      <h4 className={`text-lg font-black ${formData.educationLevel === 'school' ? 'text-peach' : 'text-zinc-900 dark:text-white'}`}>School Student</h4>
+                      <h4 className={`text-base sm:text-lg font-black ${formData.educationLevel === 'school' ? 'text-peach' : 'text-zinc-900 dark:text-white'}`}>School Student</h4>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Class 1 to Class 12</p>
                     </div>
                     {formData.educationLevel === 'school' && <Check className="ml-auto text-peach" size={24} />}
@@ -222,19 +222,19 @@ const OnboardingPage: React.FC = () => {
 
                   <button
                     onClick={() => setFormData(prev => ({ ...prev, educationLevel: 'college' }))}
-                    className={`flex items-center gap-6 p-8 rounded-3xl border-2 transition-all group text-left ${
+                    className={`flex items-center gap-4 sm:gap-6 p-5 sm:p-8 rounded-3xl border-2 transition-all group text-left ${
                       formData.educationLevel === 'college'
                         ? 'border-peach bg-peach/5'
                         : 'border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 hover:border-zinc-200 dark:hover:border-zinc-700'
                     }`}
                   >
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${
+                    <div className={`w-12 h-12 sm:w-16 sm:h-16 shrink-0 rounded-2xl flex items-center justify-center transition-all ${
                       formData.educationLevel === 'college' ? 'bg-peach text-white shadow-xl shadow-peach/20' : 'bg-white dark:bg-zinc-700 text-zinc-400'
                     }`}>
-                      <GraduationCap size={32} />
+                      <GraduationCap size={28} className="sm:w-8 sm:h-8" />
                     </div>
                     <div>
-                      <h4 className={`text-lg font-black ${formData.educationLevel === 'college' ? 'text-peach' : 'text-zinc-900 dark:text-white'}`}>College Student</h4>
+                      <h4 className={`text-base sm:text-lg font-black ${formData.educationLevel === 'college' ? 'text-peach' : 'text-zinc-900 dark:text-white'}`}>College Student</h4>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Undergrad, Postgrad, PhD</p>
                     </div>
                     {formData.educationLevel === 'college' && <Check className="ml-auto text-peach" size={24} />}
@@ -340,7 +340,7 @@ const OnboardingPage: React.FC = () => {
                     Primary Learning Goals (Select Multiple)
                     <span className="text-[10px] bg-peach/10 text-peach px-2 py-0.5 rounded-full">Required</span>
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {['Exam Preparation', 'Skill Building', 'General Knowledge', 'Career Change'].map(g => (
                       <button
                         key={g}
@@ -363,7 +363,7 @@ const OnboardingPage: React.FC = () => {
                     Preferred Learning Styles (Select Multiple)
                     <span className="text-[10px] bg-peach/10 text-peach px-2 py-0.5 rounded-full">Required</span>
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {['Visual (Videos/Graphs)', 'Textual (Detailed Reading)', 'Interactive (Quizzes)', 'Practical (Exercises)'].map(s => (
                       <button
                         key={s}
@@ -384,7 +384,7 @@ const OnboardingPage: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center justify-between mt-12 pt-8 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="flex items-center justify-between gap-3 mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-zinc-100 dark:border-zinc-800">
             <button
               onClick={prevStep}
               disabled={step === 1 || isSaving}
@@ -396,7 +396,7 @@ const OnboardingPage: React.FC = () => {
             <button
               onClick={step === totalSteps ? handleFinish : nextStep}
               disabled={!isStepValid() || isSaving}
-              className={`px-10 py-5 rounded-2xl font-bold flex items-center gap-2 transition-all ${
+              className={`px-6 sm:px-10 py-4 sm:py-5 rounded-2xl font-bold flex items-center gap-2 transition-all ${
                 isStepValid() 
                   ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-xl' 
                   : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-300 dark:text-zinc-600 cursor-not-allowed'

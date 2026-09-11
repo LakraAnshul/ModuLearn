@@ -26,19 +26,19 @@ const ProgressPage: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="mb-12">
-        <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">My Learning Journey</h1>
+      <div className="mb-10 sm:mb-12">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">My Learning Journey</h1>
         <p className="text-zinc-500 dark:text-zinc-400 font-medium">Tracking your growth since October 2023.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-10 sm:mb-12">
         {[
           { icon: <Target className="text-peach" />, label: "Target Set", val: "12/20", sub: "Modules" },
           { icon: <Flame className="text-orange-500" />, label: "Day Streak", val: "14", sub: "Days" },
           { icon: <Trophy className="text-yellow-500" />, label: "Total Points", val: "2,450", sub: "XP" },
           { icon: <GraduationCap className="text-blue-500" />, label: "Certificates", val: "4", sub: "Earned" },
         ].map((item, idx) => (
-          <div key={idx} className="bg-white dark:bg-zinc-900 p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm transition-colors duration-200">
+          <div key={idx} className="bg-white dark:bg-zinc-900 p-5 sm:p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm transition-colors duration-200">
              <div className="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 rounded-xl flex items-center justify-center mb-6">
                 {item.icon}
              </div>
@@ -51,11 +51,11 @@ const ProgressPage: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white dark:bg-zinc-900 p-10 rounded-[40px] border border-zinc-100 dark:border-zinc-800 shadow-xl dark:shadow-none shadow-zinc-100 transition-colors duration-200">
-           <h3 className="text-xl font-bold mb-10 dark:text-white">Learning Activity (Hours/Day)</h3>
-            <div className="h-80 w-full min-w-0">
-              <ResponsiveContainer width="100%" height={320} minWidth={0}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+        <div className="lg:col-span-2 bg-white dark:bg-zinc-900 p-5 sm:p-10 rounded-[40px] border border-zinc-100 dark:border-zinc-800 shadow-xl dark:shadow-none shadow-zinc-100 transition-colors duration-200">
+           <h3 className="text-lg sm:text-xl font-bold mb-6 sm:mb-10 dark:text-white">Learning Activity (Hours/Day)</h3>
+            <div className="h-72 sm:h-80 w-full min-w-0">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={data}>
                   <XAxis 
                     dataKey="name" 
@@ -85,9 +85,9 @@ const ProgressPage: React.FC = () => {
            </div>
         </div>
 
-        <div className="bg-zinc-950 dark:bg-zinc-900 p-10 rounded-[40px] text-white flex flex-col justify-between transition-colors duration-200">
+        <div className="bg-zinc-950 dark:bg-zinc-900 p-5 sm:p-10 rounded-[40px] text-white flex flex-col justify-between transition-colors duration-200">
            <div>
-              <h3 className="text-xl font-bold mb-6">Mastery Level</h3>
+              <h3 className="text-lg sm:text-xl font-bold mb-6">Mastery Level</h3>
               <div className="space-y-6">
                  <div>
                     <div className="flex justify-between text-xs font-bold uppercase tracking-widest mb-3">

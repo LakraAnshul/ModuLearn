@@ -102,36 +102,36 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="mb-12">
-        <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">Settings</h1>
+      <div className="mb-10 sm:mb-12">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">Settings</h1>
         <p className="text-zinc-500 dark:text-zinc-400 font-medium">Manage your account and preferences.</p>
       </div>
 
-      <div className="bg-white dark:bg-zinc-900 rounded-[40px] border border-zinc-100 dark:border-zinc-800 overflow-hidden shadow-xl shadow-zinc-100 dark:shadow-none">
+      <div className="bg-white dark:bg-zinc-900 rounded-[24px] sm:rounded-[40px] border border-zinc-100 dark:border-zinc-800 overflow-hidden shadow-xl shadow-zinc-100 dark:shadow-none">
         <div className="flex flex-col md:flex-row">
           {/* Settings Nav */}
-          <aside className="w-full md:w-64 bg-zinc-50/50 dark:bg-zinc-900/50 border-r border-zinc-100 dark:border-zinc-800 p-6 flex flex-col gap-1">
-            <button className="flex items-center gap-3 px-6 py-4 bg-white dark:bg-zinc-800 rounded-2xl shadow-sm text-peach font-bold text-sm">
+          <aside className="w-full md:w-64 shrink-0 bg-zinc-50/50 dark:bg-zinc-900/50 border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-4 sm:p-6 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible">
+            <button className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 bg-white dark:bg-zinc-800 rounded-2xl shadow-sm text-peach font-bold text-sm whitespace-nowrap shrink-0">
               <User size={18} /> Profile
             </button>
-            <button className="flex items-center gap-3 px-6 py-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-bold text-sm transition-colors">
+            <button className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-bold text-sm transition-colors whitespace-nowrap shrink-0">
               <Bell size={18} /> Notifications
             </button>
-            <button className="flex items-center gap-3 px-6 py-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-bold text-sm transition-colors">
+            <button className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-bold text-sm transition-colors whitespace-nowrap shrink-0">
               <Shield size={18} /> Security
             </button>
-            <button className="flex items-center gap-3 px-6 py-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-bold text-sm transition-colors">
+            <button className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-bold text-sm transition-colors whitespace-nowrap shrink-0">
               <Palette size={18} /> Appearance
             </button>
-            <button className="flex items-center gap-3 px-6 py-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-bold text-sm transition-colors">
+            <button className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-bold text-sm transition-colors whitespace-nowrap shrink-0">
               <HelpCircle size={18} /> Support
             </button>
           </aside>
 
           {/* Settings Content */}
-          <div className="flex-1 p-8 md:p-12">
-            <div className="mb-12">
-               <h3 className="text-2xl font-bold mb-8 dark:text-white">Personal Information</h3>
+          <div className="flex-1 min-w-0 p-5 sm:p-8 md:p-12">
+            <div className="mb-10 sm:mb-12">
+               <h3 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 dark:text-white">Personal Information</h3>
                <div className="space-y-6">
                  <div>
                    <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">Full Name</label>
@@ -179,43 +179,43 @@ const SettingsPage: React.FC = () => {
                </div>
             </div>
 
-            <div className="mb-12">
-               <h3 className="text-2xl font-bold mb-8 dark:text-white">Preferences</h3>
+            <div className="mb-10 sm:mb-12">
+               <h3 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 dark:text-white">Preferences</h3>
                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
-                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-white dark:bg-zinc-700 rounded-xl flex items-center justify-center shadow-sm">
+                  <div className="flex items-center justify-between gap-4 p-5 sm:p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
+                     <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-10 h-10 shrink-0 bg-white dark:bg-zinc-700 rounded-xl flex items-center justify-center shadow-sm">
                            {isDark ? <Moon size={18} className="text-peach" /> : <Sun size={18} className="text-peach" />}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                            <h5 className="font-bold text-sm dark:text-white">Dark Mode</h5>
                            <p className="text-xs text-zinc-400 mt-1">Adjust the appearance of the app</p>
                         </div>
                      </div>
-                     <button 
+                     <button
                        onClick={toggleDarkMode}
-                       className={`w-12 h-6 rounded-full flex items-center px-1 transition-colors duration-200 ${isDark ? 'bg-peach' : 'bg-zinc-300'}`}
+                       className={`w-12 h-6 shrink-0 rounded-full flex items-center px-1 transition-colors duration-200 ${isDark ? 'bg-peach' : 'bg-zinc-300'}`}
                      >
                         <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${isDark ? 'translate-x-6' : 'translate-x-0'}`}></div>
                      </button>
                   </div>
                   
-                  <div className="flex items-center justify-between p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
-                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-white dark:bg-zinc-700 rounded-xl flex items-center justify-center shadow-sm">
+                  <div className="flex items-center justify-between gap-4 p-5 sm:p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
+                     <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-10 h-10 shrink-0 bg-white dark:bg-zinc-700 rounded-xl flex items-center justify-center shadow-sm">
                            <Shield size={18} className="text-zinc-400" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                            <h5 className="font-bold text-sm dark:text-white">Adaptive Quizzing</h5>
                            <p className="text-xs text-zinc-400 mt-1">Adjust difficulty based on performance</p>
                         </div>
                      </div>
-                     <div className="w-12 h-6 bg-peach rounded-full flex items-center px-1">
+                     <div className="w-12 h-6 shrink-0 bg-peach rounded-full flex items-center px-1">
                         <div className="w-4 h-4 bg-white rounded-full ml-auto shadow-sm"></div>
                      </div>
                   </div>
 
-                  <div className="p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
+                  <div className="p-5 sm:p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
                     <h5 className="font-bold text-sm dark:text-white mb-4">Preferred Languages</h5>
                     <p className="text-xs text-zinc-400 mb-4">These were selected during onboarding and can be updated anytime.</p>
                     <div className="flex flex-wrap gap-2">
@@ -238,7 +238,7 @@ const SettingsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
+                  <div className="p-5 sm:p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
                     <h5 className="font-bold text-sm dark:text-white mb-4">Learning Goals</h5>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {GOALS.map((goal) => {
@@ -260,7 +260,7 @@ const SettingsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
+                  <div className="p-5 sm:p-6 bg-zinc-50 dark:bg-zinc-800 rounded-[24px]">
                     <h5 className="font-bold text-sm dark:text-white mb-4">Learning Style Preferences</h5>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {LEARNING_STYLES.map((style) => {
@@ -284,18 +284,18 @@ const SettingsPage: React.FC = () => {
                </div>
             </div>
 
-            <div className="pt-8 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap gap-4">
-               <button 
+            <div className="pt-8 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
+               <button
                  onClick={handleSaveChanges}
                  disabled={saving}
-                 className="bg-zinc-950 dark:bg-white dark:text-zinc-950 text-white px-8 py-4 rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                 className="bg-zinc-950 dark:bg-white dark:text-zinc-950 text-white px-8 py-4 rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 w-full sm:w-auto"
                >
                  {saving && <Loader2 size={18} className="animate-spin" />}
                  Save Changes
                </button>
-               <button 
+               <button
                  onClick={() => navigate('/app')}
-                 className="px-8 py-4 rounded-xl font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all flex items-center gap-2"
+                 className="px-8 py-4 rounded-xl font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all flex items-center justify-center gap-2 w-full sm:w-auto"
                >
                  <LogOut size={18} /> Sign Out
                </button>

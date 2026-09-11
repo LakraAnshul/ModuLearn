@@ -228,10 +228,10 @@ const CreatePath: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-10">
-      <div className="text-center mb-16">
-        <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-white mb-4">Start your next journey</h1>
-        <p className="text-zinc-500 dark:text-zinc-400 text-lg">Input your source material and our AI will structure it into logical modules tailored to your learning level.</p>
+    <div className="max-w-4xl mx-auto py-6 sm:py-10">
+      <div className="text-center mb-10 sm:mb-16">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white mb-3 sm:mb-4">Start your next journey</h1>
+        <p className="text-zinc-500 dark:text-zinc-400 text-base sm:text-lg">Input your source material and our AI will structure it into logical modules tailored to your learning level.</p>
         {profile && (
           <p className="text-peach font-semibold mt-3">
             📚 Creating path for: <span className="font-bold">{profile.educationLevel === 'school' ? `Grade ${profile.class}` : profile.course || 'Your Level'}</span>
@@ -240,42 +240,42 @@ const CreatePath: React.FC = () => {
       </div>
 
       {/* Method Selected */}
-      <div className="grid grid-cols-3 gap-6 mb-12">
-        <button 
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+        <button
           onClick={() => setMethod('text')}
-          className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-4 ${method === 'text' ? 'border-peach bg-peach/5 text-peach' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-400 hover:border-zinc-200 dark:hover:border-zinc-700'}`}
+          className={`p-5 sm:p-6 rounded-[24px] sm:rounded-[32px] border-2 transition-all flex flex-row sm:flex-col items-center gap-3 sm:gap-4 ${method === 'text' ? 'border-peach bg-peach/5 text-peach' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-400 hover:border-zinc-200 dark:hover:border-zinc-700'}`}
         >
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${method === 'text' ? 'bg-peach text-white shadow-lg shadow-peach/20' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
+          <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 ${method === 'text' ? 'bg-peach text-white shadow-lg shadow-peach/20' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
             <Type size={24} />
           </div>
           <span className="font-bold text-sm tracking-tight">Paste Topic</span>
         </button>
 
-        <button 
+        <button
           onClick={() => setMethod('upload')}
-          className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-4 ${method === 'upload' ? 'border-peach bg-peach/5 text-peach' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-400 hover:border-zinc-200 dark:hover:border-zinc-700'}`}
+          className={`p-5 sm:p-6 rounded-[24px] sm:rounded-[32px] border-2 transition-all flex flex-row sm:flex-col items-center gap-3 sm:gap-4 ${method === 'upload' ? 'border-peach bg-peach/5 text-peach' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-400 hover:border-zinc-200 dark:hover:border-zinc-700'}`}
         >
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${method === 'upload' ? 'bg-peach text-white shadow-lg shadow-peach/20' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
+          <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 ${method === 'upload' ? 'bg-peach text-white shadow-lg shadow-peach/20' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
             <Upload size={24} />
           </div>
           <span className="font-bold text-sm tracking-tight">Upload PDF</span>
-          <span className="text-[10px] font-semibold text-zinc-400">Now Available</span>
+          <span className="text-[10px] font-semibold text-zinc-400 sm:mt-0">Now Available</span>
         </button>
 
-        <button 
+        <button
           onClick={() => setMethod('link')}
-          className={`p-6 rounded-[32px] border-2 transition-all flex flex-col items-center gap-4 ${method === 'link' ? 'border-peach bg-peach/5 text-peach' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-400 hover:border-zinc-200 dark:hover:border-zinc-700'}`}
+          className={`p-5 sm:p-6 rounded-[24px] sm:rounded-[32px] border-2 transition-all flex flex-row sm:flex-col items-center gap-3 sm:gap-4 ${method === 'link' ? 'border-peach bg-peach/5 text-peach' : 'border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-400 hover:border-zinc-200 dark:hover:border-zinc-700'}`}
         >
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${method === 'link' ? 'bg-peach text-white shadow-lg shadow-peach/20' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
+          <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 ${method === 'link' ? 'bg-peach text-white shadow-lg shadow-peach/20' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
             <LinkIcon size={24} />
           </div>
           <span className="font-bold text-sm tracking-tight">URL / Link</span>
-          <span className="text-[10px] font-semibold text-zinc-400">Live</span>
+          <span className="text-[10px] font-semibold text-zinc-400 sm:mt-0">Live</span>
         </button>
       </div>
 
       {/* Content Input Form */}
-      <div className="bg-white dark:bg-zinc-900 p-10 rounded-[40px] border border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none">
+      <div className="bg-white dark:bg-zinc-900 p-5 sm:p-8 lg:p-10 rounded-[28px] sm:rounded-[40px] border border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none">
         {method === 'text' && (
           <div className="space-y-6">
             <div>
@@ -287,7 +287,7 @@ const CreatePath: React.FC = () => {
                   setError('');
                 }}
                 placeholder="Example: React Hooks, Quantum Physics, Web Design Principles, Machine Learning Fundamentals..."
-                className="w-full h-48 bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl p-6 outline-none focus:ring-2 focus:ring-peach/20 text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400"
+                className="w-full h-40 sm:h-48 bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl p-4 sm:p-6 outline-none focus:ring-2 focus:ring-peach/20 text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400"
               ></textarea>
               <div className="mt-2 flex items-center justify-between">
                 <p className="text-xs text-zinc-400">{content.length} characters</p>
@@ -296,13 +296,13 @@ const CreatePath: React.FC = () => {
             </div>
 
             {/* Education Level Info */}
-            <div className="bg-zinc-50 dark:bg-zinc-800/50 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+            <div className="bg-zinc-50 dark:bg-zinc-800/50 p-4 sm:p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center gap-3 mb-4">
                 <Sparkles size={18} className="text-peach" />
                 <h4 className="font-bold text-sm dark:text-white">AI Customization</h4>
               </div>
               <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-3">Your learning path will be tailored to:</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-peach"></div>
                   <span className="text-xs font-semibold dark:text-zinc-300">
@@ -328,7 +328,7 @@ const CreatePath: React.FC = () => {
 
         {method === 'upload' && (
           <div
-            className="h-64 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-[32px] flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-800 group hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+            className="w-full h-56 sm:h-64 px-4 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-[24px] sm:rounded-[32px] flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-800 group hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
             onClick={() => fileInputRef.current?.click()}
           >
             <input
@@ -370,7 +370,7 @@ const CreatePath: React.FC = () => {
                   setLinkUrl(e.target.value);
                   setError('');
                 }}
-                className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl p-6 outline-none focus:ring-2 focus:ring-peach/20 dark:text-white placeholder:text-zinc-400"
+                className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl p-4 sm:p-6 outline-none focus:ring-2 focus:ring-peach/20 dark:text-white placeholder:text-zinc-400"
                 placeholder="https://react.dev/learn"
               />
               <p className="mt-2 text-xs text-zinc-400">
@@ -450,14 +450,14 @@ const CreatePath: React.FC = () => {
         )}
 
         {/* Action Buttons */}
-        <div className="mt-12 flex items-center justify-between">
+        <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
           <div className="flex items-center gap-3 text-zinc-400">
-            <Sparkles size={18} className="text-peach" />
+            <Sparkles size={18} className="text-peach shrink-0" />
             <span className="text-xs font-bold uppercase tracking-widest">
               {loading ? 'Generating with Groq AI...' : 'AI-powered curriculum generation'}
             </span>
           </div>
-          <button 
+          <button
             onClick={handleCreate}
             disabled={
               loading ||
@@ -466,7 +466,7 @@ const CreatePath: React.FC = () => {
               (method === 'upload' && !selectedPdf) ||
               (method === 'link' && !linkUrl.trim())
             }
-            className="bg-peach text-white px-10 py-5 rounded-2xl font-bold flex items-center gap-2 hover:bg-peach/90 transition-all shadow-lg shadow-peach/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+            className="w-full sm:w-auto justify-center bg-peach text-white px-8 sm:px-10 py-4 sm:py-5 rounded-2xl font-bold flex items-center gap-2 hover:bg-peach/90 transition-all shadow-lg shadow-peach/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
           >
             {loading ? (
               <>

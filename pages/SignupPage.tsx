@@ -105,14 +105,14 @@ const SignupPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-[#fafafa] dark:bg-zinc-950 transition-colors duration-200">
-      <div className="w-full max-w-md bg-white dark:bg-zinc-900 p-10 rounded-[40px] shadow-xl shadow-zinc-200/50 dark:shadow-none border border-transparent dark:border-zinc-800">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 sm:p-6 bg-[#fafafa] dark:bg-zinc-950 transition-colors duration-200">
+      <div className="w-full max-w-md bg-white dark:bg-zinc-900 p-6 sm:p-10 rounded-3xl sm:rounded-[40px] shadow-xl shadow-zinc-200/50 dark:shadow-none border border-transparent dark:border-zinc-800">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
             <img src={logo} alt="ModuLearn" className="w-8 h-8 object-contain" />
             <span className="text-xl font-extrabold dark:text-white">ModuLearn</span>
           </Link>
-          <h1 className="text-3xl font-extrabold text-zinc-900 dark:text-white mb-2">Create Account</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white mb-2">Create Account</h1>
           <p className="text-zinc-500 dark:text-zinc-400 text-sm">Join the next generation of learners</p>
         </div>
 

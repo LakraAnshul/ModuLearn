@@ -68,29 +68,29 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 sm:mb-12 gap-4 sm:gap-6">
         <div>
-          <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-white mb-2 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2 tracking-tight">
             Welcome back, {firstName}! 👋
           </h1>
           <p className="text-zinc-500 dark:text-zinc-400 font-medium">
             Ready to continue your <span className="text-peach">{profile?.educationLevel === 'college' ? profile.course : 'School'}</span> journey?
           </p>
         </div>
-        <Link 
-          to="/app/create" 
-          className="bg-zinc-950 dark:bg-white dark:text-zinc-950 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-2 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-xl shadow-zinc-200 dark:shadow-none"
+        <Link
+          to="/app/create"
+          className="bg-zinc-950 dark:bg-white dark:text-zinc-950 text-white px-6 sm:px-8 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-xl shadow-zinc-200 dark:shadow-none w-full md:w-auto"
         >
           <Zap size={20} className="text-peach fill-peach" />
           Create New Path
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-        <div className="bg-white dark:bg-zinc-900 p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm flex flex-col justify-between transition-colors duration-200">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 sm:gap-8 mb-12 sm:mb-16">
+        <div className="bg-white dark:bg-zinc-900 p-5 sm:p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm flex flex-col justify-between transition-colors duration-200">
           <div>
             <span className="text-peach font-bold uppercase tracking-widest text-[10px] block mb-4">Streak</span>
-            <h3 className="text-4xl font-black mb-1 dark:text-white">{profile?.streakCount || 0}</h3>
+            <h3 className="text-3xl sm:text-4xl font-black mb-1 dark:text-white">{profile?.streakCount || 0}</h3>
             <p className="text-zinc-500 dark:text-zinc-400 text-sm font-semibold">Days consecutive learning</p>
           </div>
           <div className="mt-8 flex gap-1">
@@ -100,10 +100,10 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm flex flex-col justify-between transition-colors duration-200">
+        <div className="bg-white dark:bg-zinc-900 p-5 sm:p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm flex flex-col justify-between transition-colors duration-200">
           <div>
             <span className="text-peach font-bold uppercase tracking-widest text-[10px] block mb-4">Focus</span>
-            <h3 className="text-4xl font-black mb-1 dark:text-white">{profile?.learningStyles?.length || 0}</h3>
+            <h3 className="text-3xl sm:text-4xl font-black mb-1 dark:text-white">{profile?.learningStyles?.length || 0}</h3>
             <p className="text-zinc-500 dark:text-zinc-400 text-sm font-semibold">Preferred learning modes active</p>
           </div>
           <button className="mt-8 text-sm font-bold flex items-center gap-1 text-peach hover:underline">
@@ -111,10 +111,10 @@ const Dashboard: React.FC = () => {
           </button>
         </div>
 
-        <div className="bg-zinc-950 dark:bg-zinc-800 p-8 rounded-[32px] text-white flex flex-col justify-between shadow-2xl transition-colors duration-200">
+        <div className="bg-zinc-950 dark:bg-zinc-800 p-5 sm:p-8 rounded-[32px] text-white flex flex-col justify-between shadow-2xl transition-colors duration-200 sm:col-span-2 md:col-span-1">
           <div>
             <span className="text-zinc-500 font-bold uppercase tracking-widest text-[10px] block mb-4">Course Level</span>
-            <h3 className="text-4xl font-black mb-1">
+            <h3 className="text-3xl sm:text-4xl font-black mb-1">
               {profile?.educationLevel === 'school' ? `Grade ${profile.class}` : profile?.course || 'Active'}
             </h3>
             <p className="text-zinc-400 text-sm font-semibold">Your current educational focus</p>
@@ -150,13 +150,13 @@ const Dashboard: React.FC = () => {
             key={path.id} 
             className="group bg-white dark:bg-zinc-900 p-6 rounded-[24px] border border-zinc-100 dark:border-zinc-800 hover:border-peach/30 dark:hover:border-peach/30 transition-all hover:shadow-xl hover:shadow-zinc-200/40 dark:hover:shadow-none flex flex-col md:flex-row md:items-center justify-between gap-6"
           >
-            <div className="flex items-center gap-6">
-              <div className="w-14 h-14 bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center text-zinc-400 group-hover:bg-peach group-hover:text-white transition-all">
+            <div className="flex items-center gap-4 sm:gap-6">
+              <div className="w-14 h-14 shrink-0 bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center text-zinc-400 group-hover:bg-peach group-hover:text-white transition-all">
                 <Play size={24} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h4 className="font-bold text-lg mb-1 dark:text-white">{path.title}</h4>
-                <div className="flex items-center gap-4 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
                   <span className="flex items-center gap-1"><Clock size={12} /> {timeAgo(path.updatedAt)}</span>
                   <span>•</span>
                   <span>{path.moduleCount} Modules</span>
@@ -166,8 +166,8 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-8 md:gap-12">
-              <div className="text-right w-full md:w-32">
+            <div className="flex items-center gap-4 sm:gap-8 md:gap-12">
+              <div className="text-right flex-1 md:flex-none md:w-32">
                  <div className="flex items-center justify-between mb-2">
                    <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500">Progress</span>
                    <span className="text-xs font-bold dark:text-zinc-300">{Math.round(path.progress)}%</span>

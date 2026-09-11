@@ -23,7 +23,9 @@ import {
   Zap,
   ChevronDown,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  Menu,
+  Wrench
 } from 'lucide-react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { GeneratedCurriculum, CurriculumModule, LearningPreferences } from '../../backend/groqService.ts';
@@ -356,6 +358,9 @@ const renderStructuredExplanation = (content: string) => {
 const LearningInterface: React.FC = () => {
   const [activeModule, setActiveModule] = useState(0);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  // Mobile-only drawer toggles (desktop layout unchanged at lg+ / xl+)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [topicExplanation, setTopicExplanation] = useState<string | null>(null);
   const [explanationLoading, setExplanationLoading] = useState(false);
@@ -1819,12 +1824,12 @@ const LearningInterface: React.FC = () => {
 
   return (
     <>
-    <div className="flex h-screen w-screen bg-white dark:bg-zinc-950 overflow-hidden">
-      {/* Module Sidebar - Collapsible */}
-      <aside 
+    <div className="flex h-screen w-screen max-w-full bg-white dark:bg-zinc-950 overflow-hidden">
+      {/* Module Sidebar - Collapsible (desktop only) */}
+      <aside
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
-        className={`bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 flex flex-col transition-[width] duration-500 ease-in-out overflow-hidden ${
+        className={`hidden lg:flex bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 flex-col transition-[width] duration-500 ease-in-out overflow-hidden ${
           sidebarExpanded ? 'w-80' : 'w-24'
         }`}
       >
@@ -1880,16 +1885,92 @@ const LearningInterface: React.FC = () => {
         </div>
       </aside>
 
+      {/* ── Mobile Module Nav Drawer (lg:hidden) ── */}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 h-full w-[82vw] max-w-xs bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 flex flex-col shadow-2xl">
+            <div className="border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between px-4 py-4">
+              <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
+                Module {String(activeModule + 1).padStart(2, '0')}/{String(modules.length).padStart(2, '0')}
+              </span>
+              <button
+                onClick={() => setMobileNavOpen(false)}
+                className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                aria-label="Close module list"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              {modules.map((mod, i) => (
+                <button
+                  key={mod.id}
+                  onClick={() => { setActiveModule(i); setMobileNavOpen(false); }}
+                  className={`w-full text-left p-4 rounded-xl border transition-all ${
+                    activeModule === i
+                      ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-lg border-transparent'
+                      : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-50 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
+                      Part {String(i + 1).padStart(2, '0')}
+                    </span>
+                    {completedModules[mod.id] && <CheckCircle size={14} className="text-emerald-500" />}
+                  </div>
+                  <h4 className="font-bold text-sm leading-tight">{mod.title}</h4>
+                  <div className="flex items-center gap-2 mt-3 opacity-60">
+                    <Clock size={12} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">{mod.estimatedMinutes}m</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </aside>
+        </div>
+      )}
+
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-white dark:bg-zinc-950 flex flex-col">
-        <div className="flex-1 p-8 lg:p-16 overflow-y-auto">
+      <main className="flex-1 min-w-0 overflow-y-auto bg-white dark:bg-zinc-950 flex flex-col">
+        {/* Mobile top bar (lg:hidden) — owns nav + tools access on phones */}
+        <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between gap-2 px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/90 backdrop-blur">
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            className="flex items-center gap-2 text-zinc-700 dark:text-zinc-200 font-bold text-sm"
+            aria-label="Open module list"
+          >
+            <Menu size={20} />
+            <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
+              {String(activeModule + 1).padStart(2, '0')}/{String(modules.length).padStart(2, '0')}
+            </span>
+          </button>
+          <button
+            onClick={() => navigate('/app/library')}
+            className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+            aria-label="Back to library"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <button
+            onClick={() => setMobileToolsOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-peach text-white font-bold text-xs"
+            aria-label="Open tools"
+          >
+            <Wrench size={15} /> Tools
+          </button>
+        </div>
+        <div className="flex-1 p-5 sm:p-8 lg:p-16 overflow-y-auto">
           <div className="max-w-4xl mx-auto w-full">
             <div className="flex items-center gap-2 text-peach font-bold text-xs uppercase tracking-widest mb-4">
               <BookOpen size={16} /> 
               <span>Module {String(activeModule + 1).padStart(2, '0')} of {String(modules.length).padStart(2, '0')}</span>
             </div>
-            <div className="flex items-center gap-3 mb-4 lg:mb-8">
-              <h1 className="text-3xl lg:text-5xl font-extrabold text-zinc-900 dark:text-white leading-tight">{currentModule?.title || 'Module'}</h1>
+            <div className="flex flex-wrap items-center gap-3 mb-4 lg:mb-8">
+              <h1 className="text-2xl sm:text-3xl lg:text-5xl font-extrabold text-zinc-900 dark:text-white leading-tight break-words">{currentModule?.title || 'Module'}</h1>
               {isCompleted && (
                 <span className="px-3 py-1 text-xs font-bold uppercase tracking-widest bg-emerald-100 text-emerald-700 rounded-full">Completed</span>
               )}
@@ -1908,8 +1989,8 @@ const LearningInterface: React.FC = () => {
               </p>
               
               {currentModule?.subtopics && currentModule.subtopics.length > 0 && (
-                <div className="bg-zinc-50 dark:bg-zinc-900/50 p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-6">Topics in this Module</h3>
+                <div className="bg-zinc-50 dark:bg-zinc-900/50 p-5 sm:p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                  <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white mb-4 sm:mb-6">Topics in this Module</h3>
                   <div className="space-y-3">
                     {currentModule.subtopics.map((topic, idx) => (
                       <button
@@ -1937,10 +2018,10 @@ const LearningInterface: React.FC = () => {
               )}
 
               {showCodingPractice && currentModule && codingQuestionSet && currentQuestion && (
-                <div className="bg-white dark:bg-zinc-900 p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800 mt-8">
+                <div className="bg-white dark:bg-zinc-900 p-5 sm:p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800 mt-8">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-6">
                     <div>
-                      <h3 className="text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                      <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                         <Code2 size={20} className="text-peach" />
                         Coding Practice
                       </h3>
@@ -1968,12 +2049,12 @@ const LearningInterface: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="mb-4 flex items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950/30 px-4 py-3">
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950/30 px-4 py-3">
                     <div>
                       <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">{currentQuestion.title}</p>
                       <p className="text-[10px] text-zinc-500 mt-1">One question per module topic. Use next to continue.</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={handlePreviousQuestion}
                         disabled={currentQuestionIndex === 0}
@@ -2021,9 +2102,9 @@ const LearningInterface: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-950 mb-4">
+                  <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-950 mb-4 h-[300px] sm:h-[360px]">
                     <Editor
-                      height="360px"
+                      height="100%"
                       language={currentLanguageOptionList.find((lang) => lang.value === currentPracticeLanguage)?.monacoLanguage || 'python'}
                       value={currentCode || codingQuestionSet.starterCode}
                       theme="vs-dark"
@@ -2066,7 +2147,7 @@ const LearningInterface: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         onClick={handleRunCode}
                         disabled={isCurrentRunLoading}
@@ -2156,9 +2237,9 @@ const LearningInterface: React.FC = () => {
               )}
 
               {/* Recommended Videos */}
-              <div className="bg-white dark:bg-zinc-900 p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Recommended Videos</h3>
+              <div className="bg-white dark:bg-zinc-900 p-5 sm:p-8 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                <div className="flex items-center justify-between gap-3 mb-6">
+                  <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white">Recommended Videos</h3>
                   <div className="text-right">
                     <span className="block text-xs font-bold uppercase tracking-widest text-zinc-400">
                       Langs: {languageBadgeCodes.map((code) => getDisplayLanguage(code)).join(', ')}
@@ -2282,10 +2363,10 @@ const LearningInterface: React.FC = () => {
 
             {/* Topic Explanation Modal/Section */}
             {selectedTopic && (
-              <div className="mt-12 p-8 bg-gradient-to-r from-peach/5 to-transparent dark:from-peach/10 rounded-2xl border-2 border-peach/20 dark:border-peach/30">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-3">
-                    <BookOpen size={24} className="text-peach" />
+              <div className="mt-10 sm:mt-12 p-5 sm:p-8 bg-gradient-to-r from-peach/5 to-transparent dark:from-peach/10 rounded-2xl border-2 border-peach/20 dark:border-peach/30">
+                <div className="flex items-start justify-between gap-3 mb-6">
+                  <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-3 min-w-0 break-words">
+                    <BookOpen size={24} className="text-peach flex-shrink-0" />
                     {selectedTopic}
                   </h2>
                   <button
@@ -2293,7 +2374,7 @@ const LearningInterface: React.FC = () => {
                       setSelectedTopic(null);
                       setTopicExplanation(null);
                     }}
-                    className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                    className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors flex-shrink-0"
                   >
                     <X size={24} />
                   </button>
@@ -2328,18 +2409,18 @@ const LearningInterface: React.FC = () => {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-8">
-          <div className="max-w-4xl mx-auto w-full flex items-center justify-between">
-            <button 
+        <div className="border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 sm:p-8">
+          <div className="max-w-4xl mx-auto w-full flex items-center justify-between gap-2">
+            <button
               onClick={() => activeModule > 0 && setActiveModule(activeModule - 1)}
               disabled={activeModule === 0}
-              className="flex items-center gap-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold text-sm"
+              className="flex items-center gap-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold text-sm flex-shrink-0"
             >
-              <ChevronLeft size={20} /> Previous
+              <ChevronLeft size={20} /> <span className="hidden sm:inline">Previous</span>
             </button>
-            <button 
+            <button
               onClick={handleMarkCompleted}
-              className={`px-8 lg:px-10 py-3 lg:py-4 rounded-xl font-bold transition-all text-sm lg:text-base flex items-center gap-2 ${
+              className={`px-4 sm:px-8 lg:px-10 py-3 lg:py-4 rounded-xl font-bold transition-all text-xs sm:text-sm lg:text-base flex items-center gap-2 whitespace-nowrap ${
                 isCompleted
                   ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                   : 'bg-zinc-950 dark:bg-white dark:text-zinc-950 text-white hover:bg-zinc-800 dark:hover:bg-zinc-200'
@@ -2353,19 +2434,45 @@ const LearningInterface: React.FC = () => {
                 'Mark as Completed'
               )}
             </button>
-            <button 
+            <button
               onClick={() => activeModule < modules.length - 1 && setActiveModule(activeModule + 1)}
               disabled={activeModule === modules.length - 1}
-              className="flex items-center gap-2 text-zinc-900 dark:text-white hover:text-peach dark:hover:text-peach disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold text-sm"
+              className="flex items-center gap-2 text-zinc-900 dark:text-white hover:text-peach dark:hover:text-peach disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold text-sm flex-shrink-0"
             >
-              Next Topic <ChevronRight size={20} />
+              <span className="hidden sm:inline">Next Topic</span><span className="sm:hidden">Next</span> <ChevronRight size={20} />
             </button>
           </div>
         </div>
       </main>
 
-      {/* Tools Panel - Collapsible on smaller screens */}
-      <aside className="w-96 bg-zinc-50 dark:bg-zinc-900 border-l border-zinc-100 dark:border-zinc-800 p-6 lg:p-8 flex flex-col gap-6 overflow-y-auto hidden xl:flex max-w-[384px]">
+      {/* Mobile Tools backdrop (below xl) */}
+      {mobileToolsOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm xl:hidden"
+          onClick={() => setMobileToolsOpen(false)}
+        />
+      )}
+
+      {/* Tools Panel — static column on xl+, slide-over drawer below xl */}
+      <aside
+        className={`bg-zinc-50 dark:bg-zinc-900 border-l border-zinc-100 dark:border-zinc-800 p-6 lg:p-8 flex-col gap-6 overflow-y-auto
+          xl:static xl:flex xl:w-96 xl:max-w-[384px] xl:translate-x-0 xl:z-auto
+          fixed top-0 right-0 z-50 h-full w-[88vw] max-w-sm shadow-2xl transition-transform duration-300
+          ${mobileToolsOpen ? 'flex translate-x-0' : 'flex translate-x-full xl:translate-x-0'}`}
+      >
+        {/* Mobile drawer header (xl:hidden) */}
+        <div className="flex items-center justify-between xl:hidden -mb-2">
+          <h3 className="font-bold text-base flex items-center gap-2 dark:text-white">
+            <Wrench size={16} className="text-peach" /> Tools
+          </h3>
+          <button
+            onClick={() => setMobileToolsOpen(false)}
+            className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+            aria-label="Close tools"
+          >
+            <X size={20} />
+          </button>
+        </div>
         <div className="bg-white dark:bg-zinc-800 p-6 lg:p-8 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-700 transition-colors duration-200">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-bold text-base lg:text-lg flex items-center gap-2 dark:text-white">
@@ -2633,7 +2740,7 @@ const LearningInterface: React.FC = () => {
 
         {/* ── Difficulty Select ── */}
         {(quizPhase === 'difficulty-select' || quizPhase === 'generating') && (
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="bg-gradient-to-r from-peach to-orange-400 p-6 text-white relative">
               <button onClick={handleCloseQuiz} className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors">
@@ -2830,7 +2937,7 @@ const LearningInterface: React.FC = () => {
           const strokeDashoffset = circumference - (pct / 100) * circumference;
 
           return (
-            <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto">
               <div className="bg-gradient-to-r from-peach to-orange-400 px-6 py-5 text-white text-center">
                 <h2 className="text-xl font-extrabold">{quizScope === 'final' ? 'Final Quiz Complete!' : 'Quiz Complete!'}</h2>
                 <p className="text-white/80 text-sm mt-1">{quizScope === 'final' ? curriculum?.title : currentModule?.title}</p>
@@ -3086,7 +3193,7 @@ const LearningInterface: React.FC = () => {
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setFlashcardPracticeMode(false); }}
         >
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="bg-gradient-to-r from-peach to-orange-400 px-6 py-4 text-white">
               <div className="flex items-center justify-between mb-3">
@@ -3105,7 +3212,7 @@ const LearningInterface: React.FC = () => {
             </div>
 
             {/* Card */}
-            <div className="p-8 flex flex-col items-center">
+            <div className="p-5 sm:p-8 flex flex-col items-center">
               <div
                 className="w-full max-w-lg cursor-pointer mb-6"
                 style={{ perspective: '800px' }}
@@ -3143,7 +3250,7 @@ const LearningInterface: React.FC = () => {
               </div>
 
               {/* Navigation controls */}
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4 sm:gap-6">
                 <button
                   onClick={handleFlashcardPrev}
                   disabled={currentFlashcardIndex === 0}
@@ -3177,7 +3284,7 @@ const LearningInterface: React.FC = () => {
               </div>
 
               {/* Keyboard hints */}
-              <div className="mt-5 flex items-center gap-4 text-[10px] text-zinc-400 font-semibold">
+              <div className="mt-5 flex flex-wrap justify-center items-center gap-3 sm:gap-4 text-[10px] text-zinc-400 font-semibold">
                 <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono text-[9px]">←</kbd><kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono text-[9px]">→</kbd> Navigate</span>
                 <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono text-[9px]">Space</kbd> Flip</span>
                 <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono text-[9px]">Esc</kbd> Close</span>

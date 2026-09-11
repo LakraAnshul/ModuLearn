@@ -60,7 +60,7 @@ const BioDigitalViewerPanel: React.FC<BioDigitalViewerPanelProps> = ({
         </a>
       </div>
 
-      <div className="aspect-[16/10] w-full bg-zinc-100 dark:bg-zinc-800">
+      <div className="w-full h-[50vh] sm:h-auto sm:aspect-[16/10] bg-zinc-100 dark:bg-zinc-800">
         <iframe
           src={viewerUrl}
           title={`BioDigital model: ${selection.modelId}`}

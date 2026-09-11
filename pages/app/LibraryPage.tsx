@@ -73,7 +73,7 @@ const LibraryPage: React.FC = () => {
     <div className="max-w-6xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div>
-          <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">My Library</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">My Library</h1>
           <p className="text-zinc-500 dark:text-zinc-400 font-medium">All generated learning paths in one place.</p>
         </div>
 
@@ -89,7 +89,7 @@ const LibraryPage: React.FC = () => {
       </div>
 
       {filteredPaths.length === 0 ? (
-        <div className="bg-white dark:bg-zinc-900 p-10 rounded-[24px] border border-zinc-100 dark:border-zinc-800 text-center">
+        <div className="bg-white dark:bg-zinc-900 p-6 sm:p-10 rounded-[24px] border border-zinc-100 dark:border-zinc-800 text-center">
           <h4 className="font-bold text-lg mb-2 dark:text-white">No matching learning paths</h4>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
             {paths.length === 0
@@ -137,7 +137,7 @@ const LibraryPage: React.FC = () => {
 
                 <Link
                   to={`/app/path/${path.id}`}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-950 hover:text-white dark:hover:bg-white dark:hover:text-zinc-950 transition-all font-bold text-sm"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-950 hover:text-white dark:hover:bg-white dark:hover:text-zinc-950 transition-all font-bold text-sm w-full md:w-auto shrink-0"
                 >
                   Open <ChevronRight size={16} />
                 </Link>
