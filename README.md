@@ -6,11 +6,16 @@
 
 Turn any topic, PDF, or URL into a personalized, structured learning experience — complete with AI explanations, quizzes, flashcards, coding challenges, 3D models, and a persistent AI tutor.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Online-brightgreen?style=for-the-badge&logo=render&logoColor=white)](https://modulearn-9pq2.onrender.com/)
 [![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-6.2-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20DB-3fcf8e?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
 [![License](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](LICENSE)
+
+<br/>
+
+🚀 **Live Demo**: [https://modulearn-9pq2.onrender.com/](https://modulearn-9pq2.onrender.com/)
 
 </div>
 
@@ -286,10 +291,15 @@ For Google OAuth to work correctly:
 
 ## 🌐 Deployment
 
+The application is deployed live on Render:
+
+🔗 **Live URL**: [https://modulearn-9pq2.onrender.com/](https://modulearn-9pq2.onrender.com/)
+
 ### Render (Static Site)
 
 | Setting | Value |
 |---------|-------|
+| Live URL | [https://modulearn-9pq2.onrender.com/](https://modulearn-9pq2.onrender.com/) |
 | Build Command | `npm run build` |
 | Publish Directory | `dist` |
 
