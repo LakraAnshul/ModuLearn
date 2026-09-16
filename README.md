@@ -96,7 +96,7 @@ A robust assessment suite for knowledge validation and active recall:
 A floating chatbot available across the entire platform:
 
 - **Context-Aware** — Knows your course, current module, progress, quiz results, and user profile
-- **Powered by Groq** — Uses `llama-3.3-70b-versatile` for fast, high-quality responses
+- **Powered by Groq** — Uses `openai/gpt-oss-120b` for fast, high-quality responses
 - **Persistent Memory** — Chat history saved in Supabase — pick up conversations where you left off
 
 ### ✏️ Path Authoring & Visualization
@@ -124,7 +124,7 @@ Before committing to a learning path:
 |-------|-----------|
 | **Frontend** | React 19, TypeScript, Tailwind CSS, React Router (hash-based) |
 | **Build** | Vite 6 |
-| **AI Engine** | Groq API (`llama-3.3-70b-versatile`) — curriculum, quizzes, explanations, chatbot |
+| **AI Engine** | Groq API (`openai/gpt-oss-120b`) — curriculum, quizzes, explanations, chatbot |
 | **AI Fallback** | Google GenAI (`@google/genai`) for selected flows |
 | **Auth & Database** | Supabase (PostgreSQL, Auth, Google OAuth) |
 | **Code Execution** | Judge0 API (sandboxed execution) |

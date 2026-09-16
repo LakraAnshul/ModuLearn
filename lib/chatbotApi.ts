@@ -1,6 +1,6 @@
 /**
  * Chatbot API — Groq streaming + system prompt builder
- * Uses llama-3.3-70b-versatile via Groq API with SSE streaming.
+ * Uses openai/gpt-oss-120b via Groq API with SSE streaming.
  */
 
 import { UserProfile } from './database.ts';
@@ -8,7 +8,7 @@ import { CurriculumModule, LearningPreferences } from '../backend/groqService.ts
 import { SavedLearningPathSummary } from './database.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const CHATBOT_MODEL = 'llama-3.3-70b-versatile';
+const CHATBOT_MODEL = 'openai/gpt-oss-120b';
 
 // ─── Context types ────────────────────────────────────────────────────────────
 
@@ -56,10 +56,10 @@ ${userProfile.learningStyles?.length ? `Learning styles: ${userProfile.learningS
   // ── Enrolled courses section ──────────────────────────────────────────────
   const coursesSection = learningPaths.length
     ? `## Enrolled Courses (${learningPaths.length} total)\n` +
-      learningPaths
-        .slice(0, 8)
-        .map((p) => `- "${p.title}" — ${Math.round(p.progress)}% complete (${p.moduleCount} modules)`)
-        .join('\n')
+    learningPaths
+      .slice(0, 8)
+      .map((p) => `- "${p.title}" — ${Math.round(p.progress)}% complete (${p.moduleCount} modules)`)
+      .join('\n')
     : '## Enrolled Courses\nNo courses yet.';
 
   // ── Current course section ────────────────────────────────────────────────
@@ -80,9 +80,9 @@ ${userProfile.learningStyles?.length ? `Learning styles: ${userProfile.learningS
     const explanationEntries = Object.entries(topicExplanations).slice(0, 3);
     const explanationsSection = explanationEntries.length
       ? '\n### Already-Explained Subtopics (summaries)\n' +
-        explanationEntries
-          .map(([topic, text]) => `**${topic}**: ${text.slice(0, 400).replace(/\n/g, ' ')}…`)
-          .join('\n')
+      explanationEntries
+        .map(([topic, text]) => `**${topic}**: ${text.slice(0, 400).replace(/\n/g, ' ')}…`)
+        .join('\n')
       : '';
 
     currentCourseSection = `## Current Course: "${title}"
@@ -181,7 +181,7 @@ export async function streamChatCompletion(
     try {
       const errBody = await response.json();
       msg = errBody?.error?.message || msg;
-    } catch {}
+    } catch { }
     onError(new Error(msg));
     return;
   }

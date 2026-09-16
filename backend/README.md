@@ -53,7 +53,7 @@ backend/
 
 ## 🤖 Available Models
 
-The service uses **`llama-3.3-70b-versatile`** by default, which offers:
+The service uses **`openai/gpt-oss-120b`** by default, which offers:
 - **Context Window**: 131,072 tokens
 - **Max Completion**: 32,768 tokens
 - **Latency**: Ultra-fast inference
@@ -150,7 +150,7 @@ const MODEL = 'your-preferred-model-id';
 - `groq/compound-mini` - Lightweight, fast
 
 **Balanced (Recommended):**
-- `llama-3.3-70b-versatile` (Current) - Best overall
+- `openai/gpt-oss-120b` (Current) - Best overall
 
 **Advanced:**
 - `qwen/qwen3-32b` - Very capable for complex tasks
@@ -253,4 +253,4 @@ Potential features for the backend:
 ---
 
 **Last Updated:** February 17, 2026
-**Groq Model Used:** llama-3.3-70b-versatile
+**Groq Model Used:** openai/gpt-oss-120b

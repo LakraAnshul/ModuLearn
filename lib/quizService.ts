@@ -3,12 +3,12 @@
  * Generates AI-powered MCQ questions using Groq, scoped strictly to the
  * current module's title and subtopics.
  *
- * Model: llama-3.3-70b-versatile
+ * Model: openai/gpt-oss-120b
  */
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = 'llama-3.3-70b-versatile';
+const MODEL = 'openai/gpt-oss-120b';
 
 export type QuizDifficulty = 'easy' | 'medium' | 'hard';
 export type QuizType = 'mixed' | 'theory' | 'numerical';
@@ -278,7 +278,7 @@ const buildFeedbackPrompt = (
   timeTakenSeconds?: number | null
 ): string => {
   const percentage = (score / total) * 100;
-  
+
   // Format the mistakes for the prompt
   const mistakes = questions.filter((q, i) => userAnswers[i] !== q.correctIndex).map((q, i) => {
     const originalIndex = questions.indexOf(q);
@@ -289,7 +289,7 @@ const buildFeedbackPrompt = (
 
   const contextStr = moduleTitle ? `module "${moduleTitle}"` : `entire course`;
   const timeTakenStr = timeTakenSeconds ? `\nTime Taken: ${Math.floor(timeTakenSeconds / 60)} minutes and ${timeTakenSeconds % 60} seconds.` : '';
-  
+
   return `You are an encouraging but honest AI educational tutor. A student has just completed a quiz on the ${contextStr} at the "${difficulty.toUpperCase()}" difficulty level.
 
 Performance: ${score} out of ${total} correct (${percentage.toFixed(1)}%).${timeTakenStr}
@@ -379,7 +379,7 @@ export const quizService = {
     }
 
     const prompt = buildFeedbackPrompt(score, total, difficulty, questions, userAnswers, moduleTitle, timeTakenSeconds);
-    
+
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {

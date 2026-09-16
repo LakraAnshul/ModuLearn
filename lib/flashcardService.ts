@@ -4,12 +4,12 @@
  * title and subtopics. Each module gets 10–15 flashcards covering key concepts,
  * definitions, code snippets, and important remember-points.
  *
- * Model: llama-3.3-70b-versatile
+ * Model: openai/gpt-oss-120b
  */
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = 'llama-3.3-70b-versatile';
+const MODEL = 'openai/gpt-oss-120b';
 
 export interface FlashcardItem {
   id: string;

@@ -64,7 +64,7 @@ interface CallGroqOptions {
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const SMALL_MODEL = 'llama-3.1-8b-instant';
-const LARGE_MODEL = 'llama-3.3-70b-versatile';
+const LARGE_MODEL = 'openai/gpt-oss-120b';
 
 const STOP_WORDS = new Set([
   'a', 'an', 'and', 'the', 'or', 'but', 'if', 'then', 'else', 'when', 'at', 'by', 'for', 'with', 'without', 'to', 'from',

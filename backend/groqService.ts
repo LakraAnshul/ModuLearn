@@ -1,7 +1,7 @@
 /**
  * Groq API Service
  * Handles curriculum generation using Groq's language models
- * Model: llama-3.3-70b-versatile (best balance of speed, accuracy & output quality)
+ * Model: openai/gpt-oss-120b (best balance of speed, accuracy & output quality)
  */
 
 export interface CurriculumModule {
@@ -45,7 +45,7 @@ const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 // Best model for this use case: speed + accuracy + output quality
-const MODEL = 'llama-3.3-70b-versatile';
+const MODEL = 'openai/gpt-oss-120b';
 
 const getDepthLabel = (depth: LearningDepth): string => {
   const labels: Record<LearningDepth, string> = {
@@ -318,7 +318,7 @@ Ensure:
 export const groqService = {
   /**
    * Generate a structured curriculum based on topic and education level
-   * Uses Groq's llama-3.3-70b-versatile model for best results
+   * Uses Groq's openai/gpt-oss-120b model for best results
    */
   async generateCurriculum(
     topic: string,
